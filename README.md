@@ -1,6 +1,6 @@
 # Cruise Control Helm Chart
 
-[Cruise Control](https://cruise-control.io) is an open source platform allowing organizations to manage their cyber threat intelligence knowledge and observables. It has been created in order to structure, store, organize and visualize technical and non-technical information about cyber threats.
+[Cruise Control](https://github.com/linkedin/cruise-control) is a product that helps run Apache Kafka clusters at large scale. Due to the popularity of Apache Kafka, many companies have bigger and bigger Kafka clusters.
 
 ## Usage
 
