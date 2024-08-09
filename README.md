@@ -40,4 +40,5 @@ helm install [RELEASE_NAME] oci://ghcr.io/devops-ia/helm-cruise-control/cruise-c
 
 ## Cruise Control chart
 
-Can be found in [cruise-control chart](charts/cruise-control).
+Can be found in [cruise-control chart](https://github.com/devops-ia/helm-cruise-control/tree/main/charts/cruise-control).
+
