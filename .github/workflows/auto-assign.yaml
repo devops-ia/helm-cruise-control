@@ -1,0 +1,20 @@
+name: Auto-assign Issue
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: 'auto-assign issue'
+        uses: pozil/auto-assign-issue@v2
+        with:
+          repo-token: ${{ secrets.PAT_GITHUB }}
+          teams: devops-ia
+          removePreviousAssignees: true

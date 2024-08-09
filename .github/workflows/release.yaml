@@ -1,0 +1,98 @@
+name: Release charts
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "charts/cruise-control/**"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Semantic Release
+        uses: cycjimmy/semantic-release-action@v4
+        id: semantic_release
+        with:
+          dry_run: true
+          branch: main
+          tag_format: ${version}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Chart verison
+        id: chart_version
+        if: steps.semantic_release.outputs.new_release_published == 'true'
+        run: |
+          sed -i 's/^version: .*/version: ${{ steps.semantic_release.outputs.new_release_git_tag }}/g' charts/cruise-control/Chart.yaml
+          echo "CHART_VERSION=${{ steps.semantic_release.outputs.new_release_git_tag }}" >> $GITHUB_OUTPUT
+
+      - name: Check if tag exists
+        id: tag_exists
+        if: steps.semantic_release.outputs.new_release_published == 'true'
+        run: |
+          TAG_EXISTS=true
+          if ! [ $(git tag -l "v${{ steps.chart_version.outputs.CHART_VERSION }}") ]; then
+              TAG_EXISTS=false
+          fi
+          echo TAG_EXISTS=$TAG_EXISTS >> $GITHUB_OUTPUT
+
+      - name: Run chart-releaser
+        if: steps.tag_exists.outputs.TAG_EXISTS == 'false'
+        uses: helm/chart-releaser-action@v1.6.0
+        with:
+          charts_dir: charts
+          config: cr.yaml
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          CR_SKIP_EXISTING: true
+
+      - name: Login in to the Container registry
+        if: steps.tag_exists.outputs.TAG_EXISTS == 'false'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        if: steps.tag_exists.outputs.TAG_EXISTS == 'false'
+        uses: sigstore/cosign-installer@v3
+
+      - name: Install Oras
+        if: steps.tag_exists.outputs.TAG_EXISTS == 'false'
+        uses: oras-project/setup-oras@v1
+
+      # ref: https://github.com/backstage/charts/blob/88240ce7a0726e3773ee0e4866fbe6325c15267b/.github/workflows/release.yml#L50
+      - name: Publish and Sign OCI Charts
+        if: steps.tag_exists.outputs.TAG_EXISTS == 'false'
+        run: |
+          for chart in `find .cr-release-packages -name '*.tgz' -print`; do
+            helm push ${chart} oci://ghcr.io/${GITHUB_REPOSITORY} |& tee helm-push-output.log
+            file_name=${chart##*/}
+            chart_name=${file_name%-*}
+            digest=$(awk -F "[, ]+" '/Digest/{print $NF}' < helm-push-output.log)
+            cosign sign -y "ghcr.io/${GITHUB_REPOSITORY}/${chart_name}@${digest}"
+
+            oras push "ghcr.io/${GITHUB_REPOSITORY}/${chart_name}:${{ steps.chart_version.outputs.CHART_VERSION }}"
+          done
+        env:
+          COSIGN_EXPERIMENTAL: 1
