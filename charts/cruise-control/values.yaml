@@ -414,3 +414,4 @@ log4j:
   rootLogger.appenderRefs: console, kafkaCruiseControlAppender
   rootLogger.appenderRef.console.ref: STDOUT
   rootLogger.appenderRef.kafkaCruiseControlAppender.ref: kafkaCruiseControlFile
+
