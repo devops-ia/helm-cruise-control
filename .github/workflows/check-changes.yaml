@@ -65,4 +65,3 @@ jobs:
             Check the release is pushed on <https://github.com/devops-ia/kafka-cruise-control/pkgs/container/kafka-cruise-control>
           labels: |
             auto-pr-bump-version
-          team-reviewers: devops-ia
