@@ -216,8 +216,8 @@ config:
   disk.balance.threshold: 1.1
   disk.capacity.threshold: 0.8
   disk.low.utilization.threshold: 0.0
-  #goal.balancedness.priority.weight:
-  #goal.balancedness.strictness.weight:
+  # goal.balancedness.priority.weight:
+  # goal.balancedness.strictness.weight:
   goals:
   - com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal
   - com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareDistributionGoal
@@ -268,7 +268,7 @@ config:
   topics.excluded.from.partition.movement: __consumer_offsets.*|__amazon_msk_canary.*|__amazon_msk_connect.*|__KafkaCruiseControl.*
 
   # EXECUTOR
-  #default.replication.throttle:
+  # default.replication.throttle:
   execution.progress.check.interval.ms: 10000
   max.num.cluster.partition.movements: 1250
   num.concurrent.intra.broker.partition.movements: 2
@@ -303,7 +303,7 @@ config:
   completed.kafka.monitor.user.task.retention.time.ms: 86400000
   completed.user.task.retention.time.ms: 86400000
   demotion.history.retention.time.ms: 1209600000
-  #goal.violation.distribution.threshold.multiplier: 2.50
+  # goal.violation.distribution.threshold.multiplier: 2.50
   max.active.user.tasks: 5
   max.cached.completed.cruise.control.admin.user.tasks: 30
   max.cached.completed.cruise.control.monitor.user.tasks: 20
@@ -322,7 +322,7 @@ config:
   metric.anomaly.detection.interval.ms: 120000
   metric.anomaly.finder.class: com.linkedin.kafka.cruisecontrol.detector.KafkaMetricAnomalyFinder
   removal.history.retention.time.ms: 1209600000
-  #self.healing.broker.failure.enabled: true
+  # self.healing.broker.failure.enabled: true
   self.healing.enabled: false
   self.healing.exclude.recently.demoted.brokers: true
   self.healing.exclude.recently.removed.brokers: true
@@ -414,4 +414,3 @@ log4j:
   rootLogger.appenderRefs: console, kafkaCruiseControlAppender
   rootLogger.appenderRef.console.ref: STDOUT
   rootLogger.appenderRef.kafkaCruiseControlAppender.ref: kafkaCruiseControlFile
-
