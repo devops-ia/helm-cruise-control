@@ -150,15 +150,68 @@ tolerations: []
 # -- Affinity for pod assignment
 affinity: {}
 
+# -- Environment variables to configure application
+# Ref: https://github.com/linkedin/cruise-control/blob/main/kafka-cruise-control-start.sh
+env: {}
+  # my_env: my_value
+
+# -- Cruise Control JAAS configuration
+# Sample: https://github.com/linkedin/cruise-control/blob/main/config/cruise_control_jaas.conf_template
+jaas:
+  enabled: false
+  config: |
+    // Enter appropriate Client entry for secured zookeeper client connections
+    Client {
+      com.sun.security.auth.module.Krb5LoginModule required
+      useKeyTab=true
+      keyTab="/path/to/zookeeper_client.keytab"
+      storeKey=true
+      useTicketCache=false
+      principal="zookeeper_client@<REALM>";
+    };
+
+    // Enter appropriate KafkaClient entry if using the SASL protocol, remove if not
+    KafkaClient {
+      com.sun.security.auth.module.Krb5LoginModule required
+      useKeyTab=true
+      keyTab="/path/to/kafka_client.keytab"
+      storeKey=true
+      useTicketCache=false
+      serviceName="kafka"
+      principal="kafka_client@<REALM>";
+    };
+
+# -- Cruise Control cluster config
+# Sample: https://github.com/linkedin/cruise-control/blob/main/config/clusterConfigs.json
+cluster:
+  min.insync.replicas: 1
+  an.example.cluster.config: false
+
 # -- Cruise Control cluster resources
-kafkaCluster:
-  storage: 1024
-  numCores: 2
-  networkIn: 1000
-  networkOut: 1000
+capacity:
+  # Allow:
+  #   capacity: where each broker has the same number of cores. Sample: https://github.com/linkedin/cruise-control/blob/main/config/capacity.json
+  #   capacityCores: where brokers may have varying number of cores. Sample: https://github.com/linkedin/cruise-control/blob/main/config/capacityCores.json
+  #   capacityJBOD: where brokers may have variying number of mounts. Sample: https://github.com/linkedin/cruise-control/blob/main/config/capacityJBOD.json
+  type: capacity
+  config: |
+    {
+      "brokerCapacities":[
+        {
+          "brokerId": "-1",
+          "capacity": {
+            "DISK": "1024",
+            "CPU": "100",
+            "NW_IN": 1000",
+            "NW_OUT": "1000"
+          },
+          "doc": "This is the default capacity. Capacity unit used for disk is in MB, cpu is in number of cores, network throughput is in KB."
+        }
+      ]
+    }
 
 # -- Cruise Control configuration
-# ref: https://github.com/linkedin/cruise-control/wiki/Configurations
+# Ref: https://github.com/linkedin/cruise-control/wiki/Configurations
 config:
   # METADATA CLIENT
   bootstrap.servers: "localhost:9092"
@@ -175,7 +228,6 @@ config:
   broker.metric.sample.store.topic: "__KafkaCruiseControlModelTrainingSamples"
   broker.metrics.window.ms: 300000
   broker.sample.store.topic.partition.count: 8
-  capacity.config.file: config/capacityCores.json
   metric.sampler.class: com.linkedin.kafka.cruisecontrol.monitor.sampling.prometheus.PrometheusMetricSampler
   metric.sampler.partition.assignor.class: "com.linkedin.kafka.cruisecontrol.monitor.sampling.DefaultMetricSamplerPartitionAssignor"
   metric.sampling.interval.ms: 120000
@@ -397,20 +449,20 @@ log4j:
   # Loggers
   logger.cruisecontrol.name: com.linkedin.kafka.cruisecontrol
   logger.cruisecontrol.level: info
-  logger.cruisecontrol.appenderRef.kafkaCruiseControlAppender.ref: kafkaCruiseControlFile
+  logger.cruisecontrol.appenderRef.kafkaCruiseControlAppender.Ref: kafkaCruiseControlFile
 
   logger.detector.name: com.linkedin.kafka.cruisecontrol.detector
   logger.detector.level: info
-  logger.detector.appenderRef.kafkaCruiseControlAppender.ref: kafkaCruiseControlFile
+  logger.detector.appenderRef.kafkaCruiseControlAppender.Ref: kafkaCruiseControlFile
 
   logger.operationLogger.name: operationLogger
   logger.operationLogger.level: info
-  logger.operationLogger.appenderRef.operationAppender.ref: operationFile
+  logger.operationLogger.appenderRef.operationAppender.Ref: operationFile
 
   logger.CruiseControlPublicAccessLogger.name: CruiseControlPublicAccessLogger
   logger.CruiseControlPublicAccessLogger.level: info
-  logger.CruiseControlPublicAccessLogger.appenderRef.requestAppender.ref: requestFile
+  logger.CruiseControlPublicAccessLogger.appenderRef.requestAppender.Ref: requestFile
 
   rootLogger.appenderRefs: console, kafkaCruiseControlAppender
-  rootLogger.appenderRef.console.ref: STDOUT
-  rootLogger.appenderRef.kafkaCruiseControlAppender.ref: kafkaCruiseControlFile
+  rootLogger.appenderRef.console.Ref: STDOUT
+  rootLogger.appenderRef.kafkaCruiseControlAppender.Ref: kafkaCruiseControlFile
