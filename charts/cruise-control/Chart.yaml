@@ -8,7 +8,7 @@ maintainers:
     url: https://ialejandro.rocks
 sources:
   - https://github.com/linkedin/cruise-control
-version: 0.0.1
+version: 1.0.0
 appVersion: jdk17-cc2.5.138
 home: https://github.com/devops-ia/helm-cruise-control
 keywords:
