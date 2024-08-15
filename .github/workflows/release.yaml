@@ -1,4 +1,4 @@
-name: Release charts
+name: Release Cruise Control chart
 
 on:
   workflow_dispatch:
