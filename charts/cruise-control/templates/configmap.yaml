@@ -20,21 +20,19 @@ data:
         {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
-  capacityCores.json: |
-    {
-      "brokerCapacities":[
-        {
-          "brokerId": "-1",
-          "capacity": {
-            "DISK": {{ .Values.kafkaCluster.storage | int64 | quote }},
-            "CPU": {"num.cores": {{ .Values.kafkaCluster.numCores | quote }}},
-            "NW_IN": {{ .Values.kafkaCluster.networkIn | int64 | quote }},
-            "NW_OUT": {{ .Values.kafkaCluster.networkOut | default .Values.kafkaCluster.networkIn | int64 | quote }}
-          },
-          "doc": "This is the default capacity. Capacity unit used for disk is in MB, cpu is in number of cores, network throughput is in KB."
-        }
-      ]
-    }
+        capacity.config.file=config/{{ .Values.capacity.type }}.json
+
+  clusterConfigs.json:
+    {{- .Values.cluster | toPrettyJson | nindent 4 }}
+
+  {{ .Values.capacity.type }}.json: |
+    {{- .Values.capacity.config | nindent 4 }}
+
+  {{- if .Values.jaas.enabled }}
+  cruise_control_jaas.conf: |
+    {{- .Values.jaas.config | nindent 4 }}
+  {{- end }}
+
   log4j.properties: |
     {{- range $key, $value := .Values.log4j }}
       {{ $key }}={{ $value }}

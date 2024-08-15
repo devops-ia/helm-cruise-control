@@ -41,19 +41,42 @@ spec:
             - name: http
               containerPort: {{ .Values.service.targetPort | default .Values.service.port }}
               protocol: TCP
+          {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             {{- toYaml .Values.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
           readinessProbe:
             {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.startupProbe.enabled }}
+          startupProbe:
+            {{- toYaml .Values.startupProbe | nindent 12 }}
+          {{- end }}
+          env:
+          {{- if .Values.env }}
+          {{- range $key, $value := .Values.env }}
+          - name: {{ $key | upper }}
+            value: {{ $value | quote }}
+          {{- end }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: config-volume
-              mountPath: /cruise-control/config/cruisecontrol.properties
+              mountPath: /cruise-control/config/cruise-control.properties
               subPath: cruise-control.properties
             - name: config-volume
-              mountPath: /cruise-control/config/capacityCores.json
-              subPath: capacityCores.json
+              mountPath: /cruise-control/config/{{ .Values.capacity.type }}.json
+              subPath: {{ .Values.capacity.type }}.json
+            - name: config-volume
+              mountPath: /cruise-control/config/clusterConfigs.json
+              subPath: clusterConfigs.json
+            {{- if .Values.jaas.enabled }}
+            - name: config-volume
+              mountPath: /cruise-control/config/cruise_control_jaas.conf
+              subPath: cruise_control_jaas.conf
+            {{- end }}
             - name: config-volume
               mountPath: /cruise-control/config/log4j.properties
               subPath: log4j.properties
