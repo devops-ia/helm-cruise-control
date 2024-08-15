@@ -1,0 +1,15 @@
+sources:
+  cruise-control:
+    kind: dockerimage
+    spec:
+      image: devopsiaci/cruise-control
+      architecture: linux/amd64
+      tagfilter: "jdk17-cc*"
+conditions: {}
+targets:
+  chartVersion:
+    name: bump appversion
+    kind: yaml
+    spec:
+      file: charts/cruise-control/Chart.yaml
+      key: $.appVersion
