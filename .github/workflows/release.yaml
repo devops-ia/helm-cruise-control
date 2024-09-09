@@ -60,7 +60,7 @@ jobs:
         uses: helm/chart-releaser-action@v1.6.0
         with:
           charts_dir: charts
-          config: cr.yaml
+          config: .github/cr.yaml
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
           CR_SKIP_EXISTING: true
@@ -92,7 +92,7 @@ jobs:
             digest=$(awk -F "[, ]+" '/Digest/{print $NF}' < helm-push-output.log)
             cosign sign -y "ghcr.io/${GITHUB_REPOSITORY}/${chart_name}@${digest}"
 
-            oras push "ghcr.io/${GITHUB_REPOSITORY}/${chart_name}:artifacthub.io" "./charts/${chart_name}/artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml"
+            oras push "ghcr.io/${GITHUB_REPOSITORY}/${chart_name}:artifacthub.io" "artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml"
           done
         env:
           COSIGN_EXPERIMENTAL: 1
