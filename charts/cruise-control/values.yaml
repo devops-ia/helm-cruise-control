@@ -58,7 +58,7 @@ service:
   # -- NodePort port (only when type is NodePort)
   # nodePort: 32000
   # -- Pod expose port
-  targetPort: 4000
+  targetPort: 9090
 
 # -- Ingress configuration to expose app
 ingress:
@@ -449,20 +449,20 @@ log4j:
   # Loggers
   logger.cruisecontrol.name: com.linkedin.kafka.cruisecontrol
   logger.cruisecontrol.level: info
-  logger.cruisecontrol.appenderRef.kafkaCruiseControlAppender.Ref: kafkaCruiseControlFile
+  logger.cruisecontrol.appenderRef.kafkaCruiseControlAppender.ref: kafkaCruiseControlFile
 
   logger.detector.name: com.linkedin.kafka.cruisecontrol.detector
   logger.detector.level: info
-  logger.detector.appenderRef.kafkaCruiseControlAppender.Ref: kafkaCruiseControlFile
+  logger.detector.appenderRef.kafkaCruiseControlAppender.ref: kafkaCruiseControlFile
 
   logger.operationLogger.name: operationLogger
   logger.operationLogger.level: info
-  logger.operationLogger.appenderRef.operationAppender.Ref: operationFile
+  logger.operationLogger.appenderRef.operationAppender.ref: operationFile
 
   logger.CruiseControlPublicAccessLogger.name: CruiseControlPublicAccessLogger
   logger.CruiseControlPublicAccessLogger.level: info
-  logger.CruiseControlPublicAccessLogger.appenderRef.requestAppender.Ref: requestFile
+  logger.CruiseControlPublicAccessLogger.appenderRef.requestAppender.ref: requestFile
 
   rootLogger.appenderRefs: console, kafkaCruiseControlAppender
-  rootLogger.appenderRef.console.Ref: STDOUT
-  rootLogger.appenderRef.kafkaCruiseControlAppender.Ref: kafkaCruiseControlFile
+  rootLogger.appenderRef.console.ref: STDOUT
+  rootLogger.appenderRef.kafkaCruiseControlAppender.ref: kafkaCruiseControlFile

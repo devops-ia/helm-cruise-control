@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "cruise-control.labels" . | nindent 4 }}
 data:
-  cruise-control.properties: |
+  cruisecontrol.properties: |
     {{- range $key, $value := .Values.config }}
       {{- $valueStr := printf "%v" $value }}
       {{- if and (regexMatch "^[0-9]+$" $valueStr) (lt (len $valueStr) 10) }}
@@ -22,7 +22,7 @@ data:
     {{- end }}
         capacity.config.file=config/{{ .Values.capacity.type }}.json
 
-  clusterConfigs.json:
+  clusterConfigs.json: |
     {{- .Values.cluster | toPrettyJson | nindent 4 }}
 
   {{ .Values.capacity.type }}.json: |
