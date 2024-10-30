@@ -64,8 +64,8 @@ spec:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             - name: config-volume
-              mountPath: /cruise-control/config/cruise-control.properties
-              subPath: cruise-control.properties
+              mountPath: /cruise-control/config/cruisecontrol.properties
+              subPath: cruisecontrol.properties
             - name: config-volume
               mountPath: /cruise-control/config/{{ .Values.capacity.type }}.json
               subPath: {{ .Values.capacity.type }}.json
