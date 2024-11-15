@@ -55,6 +55,8 @@ service:
   type: ClusterIP
   # -- Kubernetes Service port
   port: 80
+  # -- Kubernetes Service health check path
+  # healthPath: ""
   # -- NodePort port (only when type is NodePort)
   # nodePort: 32000
   # -- Pod expose port
@@ -86,35 +88,68 @@ resources: {}
   #   cpu: 1
   #   memory: 256Mi
 
-# -- Configure liveness
-# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-startup-probes
+# -- Configure liveness checker
+# </br> Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-startup-probes
 livenessProbe:
-  enabled: true
+  enabled: false
   failureThreshold: 3
   initialDelaySeconds: 180
   periodSeconds: 10
   successThreshold: 1
   timeoutSeconds: 5
 
-# -- Configure readinessProbe
-# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-startup-probes
+# -- Custom livenessProbe
+livenessProbeCustom: {}
+  # httpGet:
+  #   path: /dashboard
+  #   port: 4000
+  # failureThreshold: 3
+  # initialDelaySeconds: 200
+  # periodSeconds: 30
+  # successThreshold: 1
+  # timeoutSeconds: 5
+
+# -- Configure readinessProbe checker
+# </br> Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-startup-probes
 readinessProbe:
-  enabled: true
+  enabled: false
   failureThreshold: 3
   initialDelaySeconds: 10
   periodSeconds: 10
   successThreshold: 1
   timeoutSeconds: 1
 
-# -- Configure startupProbe
-# Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-startup-probes
+# -- Custom readinessProbe
+readinessProbeCustom: {}
+  # httpGet:
+  #   path: /dashboard
+  #   port: 4000
+  # failureThreshold: 3
+  # initialDelaySeconds: 200
+  # periodSeconds: 30
+  # successThreshold: 1
+  # timeoutSeconds: 5
+
+# -- Configure startupProbe checker
+# </br> Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-startup-probes
 startupProbe:
-  enabled: true
+  enabled: false
   failureThreshold: 30
   initialDelaySeconds: 180
   periodSeconds: 10
   successThreshold: 1
   timeoutSeconds: 5
+
+# -- Custom startupProbe
+startupProbeCustom: {}
+  # httpGet:
+  #   path: /dashboard
+  #   port: 4000
+  # failureThreshold: 3
+  # initialDelaySeconds: 200
+  # periodSeconds: 30
+  # successThreshold: 1
+  # timeoutSeconds: 5
 
 # -- Autoscaling with CPU or memory utilization percentage
 autoscaling:
@@ -198,7 +233,7 @@ capacity:
           "capacity": {
             "DISK": "1024",
             "CPU": "100",
-            "NW_IN": 1000",
+            "NW_IN": "1000",
             "NW_OUT": "1000"
           },
           "doc": "This is the default capacity. Capacity unit used for disk is in MB, cpu is in number of cores, network throughput is in KB."
