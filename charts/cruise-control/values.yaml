@@ -55,6 +55,8 @@ service:
   type: ClusterIP
   # -- Kubernetes Service port
   port: 80
+  # -- Kubernetes Service health check path
+  # healthPath: ""
   # -- NodePort port (only when type is NodePort)
   # nodePort: 32000
   # -- Pod expose port
