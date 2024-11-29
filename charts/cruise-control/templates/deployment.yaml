@@ -4,6 +4,10 @@ metadata:
   name: {{ include "cruise-control.fullname" . }}
   labels:
     {{- include "cruise-control.labels" . | nindent 4 }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
@@ -87,12 +91,9 @@ spec:
             {{- end }}
           {{- end }}
           env:
-          {{- if .Values.env }}
-          {{- range $key, $value := .Values.env }}
-          - name: {{ $key | upper }}
-            value: {{ $value | quote }}
-          {{- end }}
-          {{- end }}
+            {{- with .Values.env }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
@@ -113,9 +114,6 @@ spec:
             - name: config-volume
               mountPath: /cruise-control/config/log4j.properties
               subPath: log4j.properties
-            {{- with .Values.volumeMounts }}
-            {{- toYaml . | nindent 12 }}
-            {{- end }}
             {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

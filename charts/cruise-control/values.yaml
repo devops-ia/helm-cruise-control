@@ -30,6 +30,9 @@ serviceAccount:
   # a ServiceAccount's API credentials
   automountServiceAccountToken: false
 
+# -- Deployment annotations
+annotations: {}
+
 # -- Pod annotations
 podAnnotations: {}
 
