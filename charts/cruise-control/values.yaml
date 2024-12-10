@@ -17,6 +17,9 @@ fullnameOverride: ""
 # -- Global Docker registry secret names as an array
 imagePullSecrets: []
 
+# -- initContainers as an array
+initContainers: []
+
 # -- Enable creation of ServiceAccount
 serviceAccount:
   # Specifies whether a service account should be created
