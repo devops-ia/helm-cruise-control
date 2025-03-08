@@ -25,7 +25,7 @@ jobs:
 
       - name: Update dependencies
         run: |
-          updatecli apply --config .github/updatecli/helm-appversion.yaml --commit=false
+          updatecli apply --config .github/updatecli/helm.yaml --commit=false
 
       - name: Get latest release
         id: latest_release
@@ -58,9 +58,9 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.PAT_GITHUB }}
-          commit-message: "fix: update Cruise Control version to ${{ steps.latest_release.outputs.latest_release }}"
+          commit-message: "chore: update Cruise Control version to ${{ steps.latest_release.outputs.latest_release }}"
           signoff: false
-          branch: fix/upgrade-cruise-control-appversion-${{ steps.latest_release.outputs.latest_release }}
+          branch: chore/upgrade-cruise-control-${{ steps.latest_release.outputs.latest_release }}
           delete-branch: true
           title: '[cruise-control] new release: ${{ steps.latest_release.outputs.latest_release }}'
           body: |
