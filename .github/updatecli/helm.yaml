@@ -7,9 +7,12 @@ sources:
       tagfilter: "jdk17-cc*"
 conditions: {}
 targets:
-  chartVersion:
-    name: bump appversion
-    kind: yaml
+  cruise-control-helm:
+    name: bump cruise-control helm chart
+    kind: helmchart
     spec:
-      file: charts/cruise-control/Chart.yaml
+      name: charts/cruise-control
+      file: Chart.yaml
       key: $.appVersion
+      versionincrement: patch
+    sourceid: bitbucket-bot
