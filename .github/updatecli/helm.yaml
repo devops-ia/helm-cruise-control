@@ -15,4 +15,4 @@ targets:
       file: Chart.yaml
       key: $.appVersion
       versionincrement: patch
-    sourceid: bitbucket-bot
+    sourceid: cruise-control
