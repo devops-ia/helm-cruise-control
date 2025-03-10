@@ -17,6 +17,9 @@ fullnameOverride: ""
 # -- Global Docker registry secret names as an array
 imagePullSecrets: []
 
+# -- initContainers as an array
+initContainers: []
+
 # -- Enable creation of ServiceAccount
 serviceAccount:
   # Specifies whether a service account should be created
@@ -29,6 +32,9 @@ serviceAccount:
   # Specifies if you don't want the kubelet to automatically mount
   # a ServiceAccount's API credentials
   automountServiceAccountToken: false
+
+# -- Deployment annotations
+annotations: {}
 
 # -- Pod annotations
 podAnnotations: {}

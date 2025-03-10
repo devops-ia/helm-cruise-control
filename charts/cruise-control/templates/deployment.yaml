@@ -4,6 +4,10 @@ metadata:
   name: {{ include "cruise-control.fullname" . }}
   labels:
     {{- include "cruise-control.labels" . | nindent 4 }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
@@ -26,6 +30,10 @@ spec:
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.initContainers }}
+      initContainers:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "cruise-control.serviceAccountName" . }}
@@ -87,12 +95,9 @@ spec:
             {{- end }}
           {{- end }}
           env:
-          {{- if .Values.env }}
-          {{- range $key, $value := .Values.env }}
-          - name: {{ $key | upper }}
-            value: {{ $value | quote }}
-          {{- end }}
-          {{- end }}
+            {{- with .Values.env }}
+              {{- toYaml . | nindent 12 }}
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
