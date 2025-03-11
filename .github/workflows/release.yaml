@@ -38,7 +38,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update Chart verison
+      - name: Update Chart version
         id: chart_version
         if: steps.semantic_release.outputs.new_release_published == 'true'
         run: |
@@ -57,7 +57,7 @@ jobs:
 
       - name: Run chart-releaser
         if: steps.tag_exists.outputs.TAG_EXISTS == 'false'
-        uses: helm/chart-releaser-action@v1.6.0
+        uses: helm/chart-releaser-action@v1.7.0
         with:
           charts_dir: charts
           config: .github/cr.yaml
