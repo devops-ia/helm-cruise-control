@@ -1,0 +1,63 @@
+# High Availability Configuration Example
+# This example demonstrates a HA setup with:
+# - Multiple replicas
+# - Anti-affinity rules
+# - Resource limits
+# - Load balancer service
+# - Advanced probes configuration
+
+replicaCount: 3
+
+image:
+  repository: ghcr.io/devops-ia/kafka-cruise-control
+  tag: "latest"
+  pullPolicy: Always
+
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - cruise-control
+      topologyKey: "kubernetes.io/hostname"
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 1000m
+    memory: 1Gi
+
+service:
+  type: LoadBalancer
+  port: 9090
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 180
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+startupProbe:
+  enabled: true
+  failureThreshold: 30
+  periodSeconds: 10
+
+env:
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker-0:9092,kafka-broker-1:9092,kafka-broker-2:9092"
+  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
+  MIN_INSYNC_REPLICAS: "2"

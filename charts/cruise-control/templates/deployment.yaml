@@ -4,6 +4,13 @@ metadata:
   name: {{ include "cruise-control.fullname" . }}
   labels:
     {{- include "cruise-control.labels" . | nindent 4 }}
+    {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.annotations }}
+   annotations:
+     {{- toYaml . | nindent 4 }}
+   {{- end }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
@@ -15,9 +22,9 @@ spec:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-      {{- with .Values.podAnnotations }}
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
       labels:
         {{- include "cruise-control.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
@@ -31,6 +38,10 @@ spec:
       serviceAccountName: {{ include "cruise-control.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.initContainers }}
+      initContainers:
+          {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           securityContext:
@@ -41,6 +52,10 @@ spec:
             - name: http
               containerPort: {{ .Values.service.targetPort | default .Values.service.port }}
               protocol: TCP
+          {{- with .Values.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             {{- if .Values.livenessProbeCustom }}
@@ -86,13 +101,47 @@ spec:
             timeoutSeconds: {{ .Values.startupProbe.timeoutSeconds }}
             {{- end }}
           {{- end }}
+          envFrom:
+            {{- if .Values.envFromFiles }}
+            {{- tpl (toYaml .Values.envFromFiles) . | nindent 12 }}
+            {{- end }}
           env:
-          {{- if .Values.env }}
-          {{- range $key, $value := .Values.env }}
-          - name: {{ $key | upper }}
-            value: {{ $value | quote }}
-          {{- end }}
-          {{- end }}
+            {{- $envList := dict -}}
+            {{- if .Values.envFromSecrets }}
+            {{- range $key, $value := .Values.envFromSecrets }}
+            {{- if not (hasKey $envList $key) }}
+            - name: {{ $key | upper }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $value.name }}
+                  key: {{ $value.key | default $key }}
+            {{- $_ := set $envList $key true }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            # Variables from configmap have precedence
+            {{- if .Values.envFromConfigMap }}
+            {{- range $key, $value := .Values.envFromConfigMap }}
+            {{- if not (hasKey $envList $key) }}
+            - name: {{ $key | upper }}
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ $value.name }}
+                  key: {{ $value.key | default $key }}
+            {{- $_ := set $envList $key true }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            # Add variables in plain text if they were not already added from secrets
+            {{- if .Values.env }}
+            {{- range $key, $value := .Values.env }}
+            {{- if not (hasKey $envList $key) }}
+            - name: {{ $key | upper }}
+              value: {{ $value | quote }}
+            {{- $_ := set $envList $key true }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
@@ -116,6 +165,7 @@ spec:
             {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       volumes:
         - name: config-volume
           configMap:
@@ -133,5 +183,10 @@ spec:
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      {{- $_ := include "cruise-control.patchTopologySpreadConstraints" $ }}
+      topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}

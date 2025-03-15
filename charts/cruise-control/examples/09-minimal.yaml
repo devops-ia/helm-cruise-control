@@ -1,0 +1,51 @@
+# Minimal Configuration Example
+# This example shows the absolute minimum required settings:
+# - Basic Kafka connection
+# - Minimal resource allocation
+# - Simple configuration
+# - No extra features enabled
+
+image:
+  repository: ghcr.io/devops-ia/kafka-cruise-control
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+env:
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker:9092"
+  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 512Mi
+
+service:
+  type: ClusterIP
+  port: 9090
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 180
+  periodSeconds: 10
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+configMap:
+  enabled: true
+  data:
+    cruisecontrol.properties: |
+      # Basic configurations
+      partition.metrics.window.ms=300000
+      num.partition.metrics.windows=1
+      min.samples.per.partition.metrics.window=1
+      broker.metrics.window.ms=300000
+      num.broker.metrics.windows=1
+      min.samples.per.broker.metrics.window=1

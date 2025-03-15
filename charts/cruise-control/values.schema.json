@@ -1,0 +1,442 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "replicaCount": {
+      "type": "integer",
+      "description": "Number of replicas"
+    },
+    "image": {
+      "type": "object",
+      "description": "Image registry configuration",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "The repository of the image"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "description": "The pull policy for the image",
+          "enum": ["IfNotPresent", "Always", "Never"]
+        },
+        "tag": {
+          "type": "string",
+          "description": "Overrides the image tag whose default is the chart appVersion"
+        }
+      }
+    },
+    "nameOverride": {
+      "type": "string",
+      "description": "String to partially override cruise-control.fullname template"
+    },
+    "fullnameOverride": {
+      "type": "string",
+      "description": "String to fully override cruise-control.fullname template"
+    },
+    "imagePullSecrets": {
+      "type": "array",
+      "description": "Docker registry secret names as an array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "description": "ServiceAccount configuration",
+      "properties": {
+        "create": {
+          "type": "boolean",
+          "description": "Specifies whether a service account should be created"
+        },
+        "automount": {
+          "type": "boolean",
+          "description": "Automatically mount a ServiceAccount's API credentials"
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Annotations to add to the service account"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the service account to use"
+        }
+      }
+    },
+    "testConnection": {
+      "type": "object",
+      "description": "Test connection configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Specifies whether a test connection should be created"
+        },
+        "repository": {
+          "type": "string",
+          "description": "The repository of the image"
+        },
+        "tag": {
+          "type": "string",
+          "description": "Overrides the image tag"
+        }
+      }
+    },
+    "env": {
+      "type": "object",
+      "description": "Environment variables to configure application"
+    },
+    "envFromConfigMap": {
+      "type": "object",
+      "description": "Variables from configMap"
+    },
+    "envFromSecrets": {
+      "type": "object",
+      "description": "Variables from secrets"
+    },
+    "envFromFiles": {
+      "type": "array",
+      "description": "Variables from files managed by you"
+    },
+    "secrets": {
+      "type": "array",
+      "description": "Secrets values to create credentials"
+    },
+    "initContainers": {
+      "type": "array",
+      "description": "Configure additional containers"
+    },
+    "args": {
+      "type": "array",
+      "description": "Configure args"
+    },
+    "command": {
+      "type": "array",
+      "description": "Configure command"
+    },
+    "service": {
+      "type": "object",
+      "description": "Kubernetes service to expose Pod",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Kubernetes Service type",
+          "enum": ["NodePort", "LoadBalancer", "ClusterIP"]
+        },
+        "port": {
+          "type": "integer",
+          "description": "Kubernetes Service port"
+        }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "description": "NetworkPolicy configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable or disable NetworkPolicy"
+        },
+        "policyTypes": {
+          "type": "array",
+          "description": "Policy types"
+        },
+        "ingress": {
+          "type": "array",
+          "description": "Ingress rules"
+        },
+        "egress": {
+          "type": "array",
+          "description": "Egress rules"
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "description": "Configure lifecycle hooks"
+    },
+    "terminationGracePeriodSeconds": {
+      "type": "integer",
+      "description": "Configure Pod termination grace period"
+    },
+    "livenessProbe": {
+      "type": "object",
+      "description": "Configure liveness checker",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "failureThreshold": {
+          "type": "integer"
+        },
+        "initialDelaySeconds": {
+          "type": "integer"
+        },
+        "periodSeconds": {
+          "type": "integer"
+        },
+        "successThreshold": {
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "type": "integer"
+        }
+      }
+    },
+    "livenessProbeCustom": {
+      "type": "object",
+      "description": "Custom livenessProbe"
+    },
+    "readinessProbe": {
+      "type": "object",
+      "description": "Configure readinessProbe checker",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "failureThreshold": {
+          "type": "integer"
+        },
+        "initialDelaySeconds": {
+          "type": "integer"
+        },
+        "periodSeconds": {
+          "type": "integer"
+        },
+        "successThreshold": {
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "type": "integer"
+        }
+      }
+    },
+    "readinessProbeCustom": {
+      "type": "object",
+      "description": "Custom readinessProbe"
+    },
+    "startupProbe": {
+      "type": "object",
+      "description": "Configure startupProbe checker",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "failureThreshold": {
+          "type": "integer"
+        },
+        "initialDelaySeconds": {
+          "type": "integer"
+        },
+        "periodSeconds": {
+          "type": "integer"
+        },
+        "successThreshold": {
+          "type": "integer"
+        },
+        "timeoutSeconds": {
+          "type": "integer"
+        }
+      }
+    },
+    "startupProbeCustom": {
+      "type": "object",
+      "description": "Custom startupProbe"
+    },
+    "annotations": {
+      "type": "object",
+      "description": "Configure annotations on Deployment"
+    },
+    "labels": {
+      "type": "object",
+      "description": "Configure labels on Deployment"
+    },
+    "podAnnotations": {
+      "type": "object",
+      "description": "Configure annotations on Pods"
+    },
+    "podLabels": {
+      "type": "object",
+      "description": "Configure labels on Pods"
+    },
+    "podSecurityContext": {
+      "type": "object",
+      "description": "Defines privilege and access control settings for a Pod"
+    },
+    "securityContext": {
+      "type": "object",
+      "description": "Defines privilege and access control settings for a Container"
+    },
+    "ingress": {
+      "type": "object",
+      "description": "Ingress configuration to expose app",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "className": {
+          "type": "string"
+        },
+        "annotations": {
+          "type": "object"
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "host": {
+                "type": "string"
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "pathType": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tls": {
+          "type": "array"
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "description": "Resources limits and requested"
+    },
+    "podDisruptionBudget": {
+      "type": "object",
+      "description": "Pod Disruption Budget",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "maxUnavailable": {
+          "type": "integer"
+        },
+        "minAvailable": {
+          "type": ["integer", "null"]
+        }
+      }
+    },
+    "autoscaling": {
+      "type": "object",
+      "description": "Autoscaling with CPU or memory utilization percentage",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "minReplicas": {
+          "type": "integer"
+        },
+        "maxReplicas": {
+          "type": "integer"
+        },
+        "targetCPUUtilizationPercentage": {
+          "type": "integer"
+        }
+      }
+    },
+    "volumes": {
+      "type": "array",
+      "description": "Additional volumes on the output Deployment definition"
+    },
+    "volumeMounts": {
+      "type": "array",
+      "description": "Additional volumeMounts on the output Deployment definition"
+    },
+    "nodeSelector": {
+      "type": "object",
+      "description": "Node labels for pod assignment"
+    },
+    "tolerations": {
+      "type": "array",
+      "description": "Tolerations for pod assignment"
+    },
+    "affinity": {
+      "type": "object",
+      "description": "Affinity for pod assignment"
+    },
+    "topologySpreadConstraints": {
+      "type": "array",
+      "description": "Control how Pods are spread across your cluster"
+    },
+    "jaas": {
+      "type": "object",
+      "description": "Cruise Control JAAS configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "config": {
+          "type": "string"
+        }
+      }
+    },
+    "cluster": {
+      "type": "object",
+      "description": "Cruise Control cluster config",
+      "properties": {
+        "min.insync.replicas": {
+          "type": "integer"
+        },
+        "an.example.cluster.config": {
+          "type": "boolean"
+        }
+      }
+    },
+    "capacity": {
+      "type": "object",
+      "description": "Cruise Control cluster resources",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["capacity", "capacityCores", "capacityJBOD"]
+        },
+        "config": {
+          "type": "string"
+        }
+      }
+    },
+    "config": {
+      "type": "object",
+      "description": "Cruise Control configuration",
+      "properties": {
+        "bootstrap.servers": {
+          "type": "string"
+        },
+        "client.id": {
+          "type": "string"
+        },
+        "connections.max.idle.ms": {
+          "type": "integer"
+        }
+      }
+    },
+    "log4j": {
+      "type": "object",
+      "description": "Cruise Control log4j configuration",
+      "properties": {
+        "rootLogger.level": {
+          "type": "string"
+        },
+        "appenders": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

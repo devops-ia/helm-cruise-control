@@ -1,0 +1,94 @@
+# Production Environment Configuration Example
+# This example demonstrates a production setup with:
+# - High availability
+# - Production-grade resources
+# - Strict security settings
+# - Automated backups
+
+image:
+  repository: ghcr.io/devops-ia/kafka-cruise-control
+  tag: "2.5.0"  # Using specific version tag
+  pullPolicy: IfNotPresent
+
+replicaCount: 3
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app.kubernetes.io/name
+              operator: In
+              values:
+                - cruise-control
+        topologyKey: "kubernetes.io/hostname"
+
+resources:
+  limits:
+    cpu: 4000m
+    memory: 8Gi
+  requests:
+    cpu: 2000m
+    memory: 4Gi
+
+env:
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker-0.kafka-headless:9092,kafka-broker-1.kafka-headless:9092,kafka-broker-2.kafka-headless:9092"
+  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
+  JAVA_OPTS: "-XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -Djava.security.egd=file:/dev/./urandom"
+  LOG_LEVEL: "INFO"
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+service:
+  type: ClusterIP
+  port: 9090
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: cruise-control.prod.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 180
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+backup:
+  enabled: true
+  schedule: "0 1 * * *"
+  retention: "720h"
+  destination: "s3://backups/cruise-control/"

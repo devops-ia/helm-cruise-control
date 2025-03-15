@@ -1,0 +1,39 @@
+# Basic Configuration Example
+# This example shows a minimal configuration for Cruise Control with:
+# - Basic resource settings
+# - Simple service configuration
+# - Default probes enabled
+# - Single replica deployment
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/devops-ia/kafka-cruise-control
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+service:
+  type: ClusterIP
+  port: 9090
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 180
+  periodSeconds: 10
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+env:
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker:9092"
+  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"

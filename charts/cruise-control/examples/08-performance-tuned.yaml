@@ -1,0 +1,107 @@
+# Performance-Tuned Configuration Example
+# This example demonstrates performance optimizations:
+# - JVM tuning for performance
+# - Optimized resource allocation
+# - Fine-tuned Kafka settings
+# - Performance monitoring
+# - Aggressive garbage collection
+
+image:
+  repository: ghcr.io/devops-ia/kafka-cruise-control
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+env:
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker:9092"
+  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
+  JAVA_OPTS: >-
+    -XX:+UseG1GC
+    -XX:MaxGCPauseMillis=20
+    -XX:InitiatingHeapOccupancyPercent=35
+    -XX:+ExplicitGCInvokesConcurrent
+    -XX:MaxInlineLevel=15
+    -Xms4G
+    -Xmx4G
+    -XX:+UseCompressedOops
+    -XX:+AlwaysPreTouch
+    -XX:+DisableExplicitGC
+  SAMPLE_STORE_CLASS: "com.linkedin.kafka.cruisecontrol.monitor.sampling.CruiseControlMetricsReporterSampler"
+  METRICS_REPORTER_ENABLED: "true"
+  PARTITION_METRICS_WINDOW_MS: "300000"
+  NUM_PARTITION_METRICS_WINDOWS: "5"
+  MIN_SAMPLES_PER_PARTITION_METRICS_WINDOW: "3"
+  BROKER_METRICS_WINDOW_MS: "300000"
+  NUM_BROKER_METRICS_WINDOWS: "5"
+  MIN_SAMPLES_PER_BROKER_METRICS_WINDOW: "3"
+
+configMap:
+  enabled: true
+  data:
+    cruisecontrol.properties: |
+      # Kafka Metrics Reporter Configurations
+      kafka.metrics.polling.interval.seconds=10
+      kafka.metrics.reporter.enabled=true
+      kafka.metrics.topic.metrics-per-message=100
+
+      # Performance Configurations
+      num.metric.fetchers=4
+      num.metric.samples.per.fetch=100
+      concurrent.partition.movements.per.broker=16
+      concurrent.leader.movements=1000
+      max.num.cluster.movements=1000
+
+      # Analyzer Configurations
+      default.goals=com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal,com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal
+      hard.goals=com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal
+
+      # Executor Configurations
+      num.concurrent.partition.movements.per.broker=10
+      num.concurrent.leader.movements=500
+      execution.progress.check.interval.ms=10000
+
+resources:
+  limits:
+    cpu: 4000m
+    memory: 6Gi
+  requests:
+    cpu: 2000m
+    memory: 4Gi
+
+service:
+  type: ClusterIP
+  port: 9090
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+nodeSelector:
+  node-type: high-performance
+
+tolerations:
+  - key: "node-type"
+    operator: "Equal"
+    value: "high-performance"
+    effect: "NoSchedule"
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-type
+              operator: In
+              values:
+                - high-performance

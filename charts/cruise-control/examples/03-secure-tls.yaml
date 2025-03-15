@@ -1,0 +1,80 @@
+# Secure Configuration Example with TLS
+# This example shows a secure setup with:
+# - TLS configuration
+# - Secure communication with Kafka
+# - Secret management
+# - Security context settings
+
+image:
+  repository: ghcr.io/devops-ia/kafka-cruise-control
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+secrets:
+  - name: kafka-certificates
+    data:
+      kafka.keystore.jks: |-
+        ${KAFKA_KEYSTORE_DATA}
+      kafka.truststore.jks: |-
+        ${KAFKA_TRUSTSTORE_DATA}
+      cert-password: ${CERT_PASSWORD}
+
+envFromSecrets:
+  KEYSTORE_PASSWORD:
+    name: kafka-certificates
+    key: cert-password
+  TRUSTSTORE_PASSWORD:
+    name: kafka-certificates
+    key: cert-password
+
+volumeMounts:
+  - name: kafka-certs
+    mountPath: /etc/kafka/certs
+    readOnly: true
+
+volumes:
+  - name: kafka-certs
+    secret:
+      secretName: kafka-certificates
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+env:
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker:9093"
+  KAFKA_SECURITY_PROTOCOL: "SSL"
+  SSL_KEYSTORE_LOCATION: "/etc/kafka/certs/kafka.keystore.jks"
+  SSL_TRUSTSTORE_LOCATION: "/etc/kafka/certs/kafka.truststore.jks"
+  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
+
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kafka
+    - ports:
+        - protocol: TCP
+          port: 9090
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kafka
+    - ports:
+        - protocol: TCP
+          port: 9093

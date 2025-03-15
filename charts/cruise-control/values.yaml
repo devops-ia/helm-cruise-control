@@ -1,11 +1,19 @@
+# Default values for helm-cruise-control
+# This is a YAML-formatted file
+# Declare variables to be passed into your templates
+
 # -- Number of replicas
+# Specifies the number of replicas for the service
 replicaCount: 1
 
 # -- Image registry
+# The image configuration for the base service
 image:
+  # The repository of the image
   repository: ghcr.io/devops-ia/kafka-cruise-control
+  # The pull policy for the image
   pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
+  # Overrides the image tag whose default is the chart appVersion
   tag: ""
 
 # -- String to partially override cruise-control.fullname template (will maintain the release name)
@@ -14,42 +22,87 @@ nameOverride: ""
 # -- String to fully override cruise-control.fullname template
 fullnameOverride: ""
 
-# -- Global Docker registry secret names as an array
+# -- Docker registry secret names as an array
 imagePullSecrets: []
+  # - name: my-secret-name
 
 # -- Enable creation of ServiceAccount
+# </br> Ref: https://kubernetes.io/docs/concepts/security/service-accounts/
 serviceAccount:
   # Specifies whether a service account should be created
   create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
   # Annotations to add to the service account
   annotations: {}
-  # The name of the service account to use.
+  # The name of the service account to use
   # If not set and create is true, a name is generated using the fullname template
   name: ""
-  # Specifies if you don't want the kubelet to automatically mount
-  # a ServiceAccount's API credentials
-  automountServiceAccountToken: false
 
-# -- Pod annotations
-podAnnotations: {}
+# -- Enable or disable test connection
+testConnection:
+  # Specifies whether a test connection should be created
+  enabled: false
+  # The repository of the image
+  repository: busybox
+  # Overrides the image tag whose default is the chart appVersion
+  tag: ""
 
-# -- Pod labels
-podLabels: {}
+# -- Environment variables to configure application
+env: {}
+  # MY_VARIABLE: value
 
-# -- Privilege and access control settings for a Pod or Container
-podSecurityContext: {}
-  # fsGroup: 2000
+# -- Variables from configMap
+envFromConfigMap: {}
+  # MY_VARIABLE:
+  #  name: <name-configmap>
+  #  key: key
 
-# -- Privilege and access control settings
-securityContext: {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+# -- Variables from secrets
+envFromSecrets: {}
+  # MY_VARIABLE:
+  #  name: <name-secret>
+  #  key: secret_key
+
+# -- Variables from files managed by you
+# </br> Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#configure-all-key-value-pairs-in-a-configmap-as-container-environment-variables
+envFromFiles: []
+  # - secretRef:
+  #     name: <name-secret>
+  # - configMapRef:
+  #     name: <name-configmap>
+
+# -- Secrets values to create credentials and reference by envFromSecrets
+# Generate Secret with following name: <release-name>-<name>
+# </br> Ref: https://kubernetes.io/docs/concepts/configuration/secret/
+secrets: []
+  # - name: secret-name
+  #   data:
+  #     my.key: |-
+  #       my-content
+  #     my_var: my-value
+
+# -- Configure additional containers
+# </br> Ref: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+initContainers: []
+  # - name: my-container
+  #   image: busybox
+  #   command: ['sh', '-c', 'echo "Hello, World!"']
+
+# -- Configure args
+# </br> Ref: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/
+args: []
+  # - -c
+  # - echo "Hello, World!"
+
+# -- Configure command
+# </br> Ref: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/
+command: []
+  # - echo
+  # - "Hello, World!"
 
 # -- Kubernetes service to expose Pod
+# </br> Ref: https://kubernetes.io/docs/concepts/services-networking/service/
 service:
   # -- Kubernetes Service type. Allowed values: NodePort, LoadBalancer or ClusterIP
   type: ClusterIP
@@ -60,33 +113,51 @@ service:
   # -- NodePort port (only when type is NodePort)
   # nodePort: 32000
   # -- Pod expose port
-  targetPort: 9090
+  # targetPort: 8080
 
-# -- Ingress configuration to expose app
-ingress:
+# -- NetworkPolicy configuration
+# </br> Ref: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+networkPolicy:
+  # -- Enable or disable NetworkPolicy
   enabled: false
-  className: ""
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: chart-example.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
+  # -- Policy types
+  policyTypes: []
+    # - Ingress
+    # - Egress
+  ingress: []
+    # - from:
+    #   - ipBlock:
+    #       cidr: 172.17.0.0/16
+    #       except:
+    #       - 172.17.1.0/24
+    #   - namespaceSelector:
+    #       matchLabels:
+    #         project: myproject
+    #   - podSelector:
+    #       matchLabels:
+    #         role: frontend
+    #   ports:
+    #   - protocol: TCP
+    #     port: 6379
+  egress: []
+    # - to:
+    #   - ipBlock:
+    #       cidr: 10.0.0.0/24
+    #   ports:
+    #   - protocol: TCP
+    #     port: 5978
 
-# -- The resources limits and requested
-resources: {}
-  # limits:
-  #   cpu: "1500m"
-  #   memory: 2048Mi
-  # requests:
-  #   cpu: 1
-  #   memory: 256Mi
+# -- Configure lifecycle hooks
+# </br> Ref: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/
+# </br> Ref: https://learnk8s.io/graceful-shutdown
+lifecycle: {}
+  # preStop:
+  #   exec:
+  #     command: ["sh", "-c", "sleep 10"]
+
+# -- Configure Pod termination grace period
+# </br> Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination
+terminationGracePeriodSeconds: 30
 
 # -- Configure liveness checker
 # </br> Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-startup-probes
@@ -151,7 +222,72 @@ startupProbeCustom: {}
   # successThreshold: 1
   # timeoutSeconds: 5
 
+# -- Configure annotations on Deployment
+annotations: {}
+
+# -- Configure labels on Deployment
+labels: {}
+
+# -- Configure annotations on Pods
+podAnnotations: {}
+
+# -- Configure labels on Pods
+podLabels: {}
+
+# -- Defines privilege and access control settings for a Pod
+# </br> Ref: https://kubernetes.io/docs/concepts/security/pod-security-standards/
+# </br> Ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+podSecurityContext: {}
+  # fsGroup: 2000
+
+# -- Defines privilege and access control settings for a Container
+# </br> Ref: https://kubernetes.io/docs/concepts/security/pod-security-standards/
+# </br> Ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# -- Ingress configuration to expose app
+# </br> Ref: https://kubernetes.io/docs/concepts/services-networking/ingress/
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+# -- Resources limits and requested
+# </br> Ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+resources: {}
+  # limits:
+  #   cpu: "1500m"
+  #   memory: 2048Mi
+  # requests:
+  #   cpu: 1
+  #   memory: 256Mi
+
+# -- Pod Disruption Budget
+# </br> Ref: https://kubernetes.io/docs/reference/kubernetes-api/policy-resources/pod-disruption-budget-v1/
+podDisruptionBudget:
+  enabled: false
+  maxUnavailable: 1
+  minAvailable:
+
 # -- Autoscaling with CPU or memory utilization percentage
+# </br> Ref: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
 autoscaling:
   enabled: false
   minReplicas: 1
@@ -159,32 +295,40 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
-# -- Additional volumes on the output Deployment definition.
+# -- Additional volumes on the output Deployment definition
+# </br> Ref: https://kubernetes.io/docs/concepts/storage/volumes/
+# </br> Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
+# </br> Ref: https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/#create-a-pod-that-has-access-to-the-secret-data-through-a-volume
 volumes: []
 # - name: foo
 #   secret:
 #     secretName: mysecret
 #     optional: false
 
-# -- Additional volumeMounts on the output Deployment definition.
+# -- Additional volumeMounts on the output Deployment definition
 volumeMounts: []
 # - name: foo
 #   mountPath: "/etc/foo"
 #   readOnly: true
 
 # -- Node labels for pod assignment
+# </br> Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
 nodeSelector: {}
 
 # -- Tolerations for pod assignment
+# </br> Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
 tolerations: []
 
 # -- Affinity for pod assignment
+# </br> Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity
 affinity: {}
 
-# -- Environment variables to configure application
-# Ref: https://github.com/linkedin/cruise-control/blob/main/kafka-cruise-control-start.sh
-env: {}
-  # my_env: my_value
+# -- Control how Pods are spread across your cluster
+# </br> Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/#example-multiple-topologyspreadconstraints
+topologySpreadConstraints: []
+# - maxSkew: 1
+#   topologyKey: zone
+#   whenUnsatisfiable: DoNotSchedule
 
 # -- Cruise Control JAAS configuration
 # Sample: https://github.com/linkedin/cruise-control/blob/main/config/cruise_control_jaas.conf_template

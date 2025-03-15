@@ -1,0 +1,70 @@
+# Development Environment Configuration Example
+# This example shows a development setup with:
+# - Debug enabled
+# - Minimal resources
+# - Local development settings
+# - Hot reload capabilities
+# - Debug port exposed
+
+image:
+  repository: ghcr.io/devops-ia/kafka-cruise-control
+  tag: "latest"
+  pullPolicy: Always
+
+replicaCount: 1
+
+env:
+  KAFKA_BOOTSTRAP_SERVERS: "localhost:9092"
+  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
+  JAVA_OPTS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+  DEVELOPMENT_MODE: "true"
+  LOG_LEVEL: "DEBUG"
+
+service:
+  type: NodePort
+  port: 9090
+  nodePort: 30090
+  extraPorts:
+    - name: debug
+      port: 5005
+      targetPort: 5005
+      nodePort: 30005
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 512Mi
+
+livenessProbe:
+  enabled: false
+
+readinessProbe:
+  enabled: false
+
+configMap:
+  enabled: true
+  data:
+    application-dev.properties: |
+      bootstrap.servers=localhost:9092
+      cruise.control.metrics.topic=__CruiseControlMetrics
+      cruise.control.metrics.reporter.bootstrap.servers=localhost:9092
+      cruise.control.metrics.reporter.kubernetes.mode=false
+      cruise.control.metrics.reporter.topic.pattern=.*
+      cruise.control.metrics.reporter.topic.metrics-per-message=100
+
+volumeMounts:
+  - name: config-volume
+    mountPath: /config
+    readOnly: true
+
+volumes:
+  - name: config-volume
+    configMap:
+      name: cruise-control-dev-config
+
+podAnnotations:
+  development/mode: "enabled"
+  development/debug: "enabled"

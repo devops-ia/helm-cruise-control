@@ -1,0 +1,28 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v5.0.0
+  hooks:
+    - id: trailing-whitespace
+    - id: end-of-file-fixer
+    - id: check-added-large-files
+    - id: check-merge-conflict
+
+- repo: https://github.com/gruntwork-io/pre-commit
+  rev: v0.1.26
+  hooks:
+    - id: helmlint
+
+- repo: https://github.com/norwoodj/helm-docs
+  rev: v1.14.2
+  hooks:
+    - id: helm-docs
+      args:
+        - --chart-search-root=.
+        - --template-files=README.md.gotmpl
+
+- repo: https://github.com/Lucas-C/pre-commit-hooks-nodejs
+  rev: v1.1.2
+  hooks:
+    - id: markdown-toc
+      args: [--maxdepth, "3", -i]
+      files: ^README\.md$

@@ -1,0 +1,101 @@
+# Multi-Region Configuration Example
+# This example shows a setup for multi-region deployment:
+# - Region-aware configuration
+# - Cross-region communication
+# - Region-specific resources
+# - Disaster recovery settings
+# - Multi-cluster management
+
+image:
+  repository: ghcr.io/devops-ia/kafka-cruise-control
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+env:
+  KAFKA_BOOTSTRAP_SERVERS: "kafka-0.us-east-1:9092,kafka-0.us-west-1:9092"
+  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
+  REGION: "${REGION}"
+  CROSS_REGION_ENABLED: "true"
+  REPLICA_MOVEMENT_STRATEGIES: "com.linkedin.kafka.cruisecontrol.executor.strategy.PrioritizeLargeReplicaMovementStrategy,com.linkedin.kafka.cruisecontrol.executor.strategy.PreferredLeaderElectionStrategy"
+  MIN_ISR_REPLICAS: "2"
+  REPLICATION_FACTOR: "3"
+
+configMap:
+  enabled: true
+  data:
+    capacity.json: |
+      {
+        "brokerCapacities": [
+          {
+            "brokerId": "-1",
+            "capacity": {
+              "DISK": "10000000",
+              "CPU": "100",
+              "NW_IN": "1000000",
+              "NW_OUT": "1000000"
+            }
+          }
+        ]
+      }
+    multi-region-config.properties: |
+      num.replica.movers=8
+      concurrent.partition.movements.per.broker=5
+      concurrent.leader.movements=1000
+      max.num.cluster.movements=1000
+      replica.movement.strategies=com.linkedin.kafka.cruisecontrol.executor.strategy.PrioritizeLargeReplicaMovementStrategy,com.linkedin.kafka.cruisecontrol.executor.strategy.PreferredLeaderElectionStrategy
+      goals=com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal,com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal,com.linkedin.kafka.cruisecontrol.analyzer.goals.DiskCapacityGoal
+      default.goals=com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal,com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal
+      anomaly.detection.goals=com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal
+
+volumeMounts:
+  - name: config-volume
+    mountPath: /config
+    readOnly: true
+
+volumes:
+  - name: config-volume
+    configMap:
+      name: cruise-control-multi-region-config
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: topology.kubernetes.io/region
+              operator: In
+              values:
+                - us-east-1
+                - us-west-1
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+service:
+  type: ClusterIP
+  port: 9090
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+
+networkPolicy:
+  enabled: true
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: kafka
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kafka
