@@ -89,6 +89,10 @@ initContainers: []
   #   image: busybox
   #   command: ['sh', '-c', 'echo "Hello, World!"']
 
+# -- Configure hostAliases
+# </br> Ref: https://kubernetes.io/docs/tasks/network/customize-hosts-file-for-pods/
+hostAliases: []
+
 # -- Configure args
 # </br> Ref: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/
 args: []

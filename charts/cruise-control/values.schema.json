@@ -109,6 +109,10 @@
       "type": "array",
       "description": "Configure additional containers"
     },
+    "hostAliases": {
+      "type": "array",
+      "description": "Configure hostAliases"
+    },
     "args": {
       "type": "array",
       "description": "Configure args"
