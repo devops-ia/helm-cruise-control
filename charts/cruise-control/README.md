@@ -76,11 +76,11 @@ helm show values cruise-control/cruise-control
 | envFromFiles | list | `[]` | Variables from files managed by you </br> Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#configure-all-key-value-pairs-in-a-configmap-as-container-environment-variables |
 | envFromSecrets | object | `{}` | Variables from secrets |
 | fullnameOverride | string | `""` | String to fully override cruise-control.fullname template |
+| hostAliases | list | `[]` | Configure hostAliases </br> Ref: https://kubernetes.io/docs/tasks/network/customize-hosts-file-for-pods/ |
 | image | object | `{"pullPolicy":"IfNotPresent","repository":"ghcr.io/devops-ia/kafka-cruise-control","tag":""}` | Image registry The image configuration for the base service |
 | imagePullSecrets | list | `[]` | Docker registry secret names as an array |
 | ingress | object | `{"annotations":{},"className":"","enabled":false,"hosts":[{"host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}]}],"tls":[]}` | Ingress configuration to expose app </br> Ref: https://kubernetes.io/docs/concepts/services-networking/ingress/ |
 | initContainers | list | `[]` | Configure additional containers </br> Ref: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/ |
-| hostAliases | list | `[]` | Configure hostAliases </br> Ref: https://kubernetes.io/docs/tasks/network/customize-hosts-file-for-pods/ |
 | jaas | object | `{"config":"// Enter appropriate Client entry for secured zookeeper client connections\nClient {\n  com.sun.security.auth.module.Krb5LoginModule required\n  useKeyTab=true\n  keyTab=\"/path/to/zookeeper_client.keytab\"\n  storeKey=true\n  useTicketCache=false\n  principal=\"zookeeper_client@<REALM>\";\n};\n\n// Enter appropriate KafkaClient entry if using the SASL protocol, remove if not\nKafkaClient {\n  com.sun.security.auth.module.Krb5LoginModule required\n  useKeyTab=true\n  keyTab=\"/path/to/kafka_client.keytab\"\n  storeKey=true\n  useTicketCache=false\n  serviceName=\"kafka\"\n  principal=\"kafka_client@<REALM>\";\n};\n","enabled":false}` | Cruise Control JAAS configuration Sample: https://github.com/linkedin/cruise-control/blob/main/config/cruise_control_jaas.conf_template |
 | labels | object | `{}` | Configure labels on Deployment |
 | lifecycle | object | `{}` | Configure lifecycle hooks </br> Ref: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/ </br> Ref: https://learnk8s.io/graceful-shutdown |
