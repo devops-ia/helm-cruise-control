@@ -1,3 +1,22 @@
+{{- range .Values.configMaps }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cruise-control.fullname" $ }}-{{ .name }}
+  labels:
+    {{- include "cruise-control.labels" $ | nindent 4 }}
+data:
+  {{- range $key, $value := .data }}
+  {{- if regexMatch "\n" $value }}
+  {{ $key }}: |
+    {{ $value | nindent 4 | trim }}
+  {{- else }}
+  {{ $key }}: {{ $value }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:

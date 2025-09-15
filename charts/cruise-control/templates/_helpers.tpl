@@ -57,7 +57,7 @@ This template will add a labelSelector using matchLabels to the object reference
 The matchLabels are created with the selectorLabels template.
 This works because Helm treats dictionaries as mutable objects and allows passing them by reference.
 */}}
-{{- define "cruise-control.patchSelectorLabels" -}}
+{{- define "cruise-control.patchselectorLabels" -}}
 {{- if not (hasKey ._target "labelSelector") }}
 {{- $selectorLabels := (include "cruise-control.selectorLabels" .) | fromYaml }}
 {{- $_ := set ._target "labelSelector" (dict "matchLabels" $selectorLabels) }}
@@ -72,7 +72,7 @@ This works because Helm treats dictionaries as mutable objects and allows passin
 */}}
 {{- define "cruise-control.patchTopologySpreadConstraints" -}}
 {{- range $constraint := .Values.topologySpreadConstraints }}
-{{- include "cruise-control.patchSelectorLabels" (merge (dict "_target" $constraint (include "cruise-control.selectorLabels" $)) $) }}
+{{- include "cruise-control.patchselectorLabels" (merge (dict "_target" $constraint (include "cruise-control.selectorLabels" $)) $) }}
 {{- end }}
 {{- end }}
 
