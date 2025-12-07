@@ -5,16 +5,12 @@
 # - Simple configuration
 # - No extra features enabled
 
+replicaCount: 1
+
 image:
   repository: ghcr.io/devops-ia/kafka-cruise-control
   tag: "latest"
   pullPolicy: IfNotPresent
-
-replicaCount: 1
-
-env:
-  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker:9092"
-  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
 
 resources:
   limits:
@@ -26,26 +22,17 @@ resources:
 
 service:
   type: ClusterIP
-  port: 9090
+  port: 80
+  targetPort: 9090
 
-livenessProbe:
-  enabled: true
-  initialDelaySeconds: 180
-  periodSeconds: 10
+# Configure default settings for all clusters
+clustersDefaults:
+  config:
+    # Minimal required configuration
+    bootstrap.servers: "kafka-broker:9092"
+    webserver.http.port: 9090
+    webserver.http.address: 0.0.0.0
 
-readinessProbe:
-  enabled: true
-  initialDelaySeconds: 30
-  periodSeconds: 10
-
-configMap:
-  enabled: true
-  data:
-    cruisecontrol.properties: |
-      # Basic configurations
-      partition.metrics.window.ms=300000
-      num.partition.metrics.windows=1
-      min.samples.per.partition.metrics.window=1
-      broker.metrics.window.ms=300000
-      num.broker.metrics.windows=1
-      min.samples.per.broker.metrics.window=1
+# Configure single cluster
+clusters:
+  my-cluster: {}

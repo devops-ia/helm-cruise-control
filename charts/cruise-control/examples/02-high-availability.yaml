@@ -5,6 +5,7 @@
 # - Resource limits
 # - Load balancer service
 # - Advanced probes configuration
+# - Pod Disruption Budget
 
 replicaCount: 3
 
@@ -24,6 +25,10 @@ affinity:
           - cruise-control
       topologyKey: "kubernetes.io/hostname"
 
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
 resources:
   limits:
     cpu: 2000m
@@ -34,7 +39,8 @@ resources:
 
 service:
   type: LoadBalancer
-  port: 9090
+  port: 80
+  targetPort: 9090
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-type: nlb
 
@@ -57,7 +63,60 @@ startupProbe:
   failureThreshold: 30
   periodSeconds: 10
 
-env:
-  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker-0:9092,kafka-broker-1:9092,kafka-broker-2:9092"
-  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
-  MIN_INSYNC_REPLICAS: "2"
+# Configure default settings for all clusters
+clustersDefaults:
+  # Cluster configuration
+  cluster:
+    min.insync.replicas: 2
+    default.replication.factor: 3
+
+  # Capacity configuration
+  capacity:
+    type: capacity
+    config: |
+      {
+        "brokerCapacities":[
+          {
+            "brokerId": "-1",
+            "capacity": {
+              "DISK": "200000",
+              "CPU": "100",
+              "NW_IN": "125000",
+              "NW_OUT": "125000"
+            },
+            "doc": "High availability capacity configuration."
+          }
+        ]
+      }
+
+  # Cruise Control configuration
+  config:
+    # METADATA CLIENT
+    bootstrap.servers: "kafka-broker-0:9092,kafka-broker-1:9092,kafka-broker-2:9092"
+    client.id: "cruise-control-ha"
+
+    # LOAD MONITOR
+    broker.metric.sample.store.topic: "__KafkaCruiseControlModelTrainingSamples"
+    partition.metric.sample.store.topic: "__KafkaCruiseControlPartitionMetricSamples"
+    metric.sampler.class: com.linkedin.kafka.cruisecontrol.monitor.sampling.prometheus.PrometheusMetricSampler
+    prometheus.server.endpoint: thanos-query.prometheus:9090
+    sample.store.topic.replication.factor: 3
+
+    # ANOMALY DETECTOR
+    anomaly.detection.interval.ms: "10000"
+    self.healing.enabled: false
+
+    # WEBSERVER
+    webserver.http.port: 9090
+    webserver.http.address: 0.0.0.0
+    webserver.accesslog.enabled: true
+
+  # Log4j configuration
+  log4j:
+    rootLogger.level: INFO
+    logger.cruisecontrol.level: info
+    logger.detector.level: info
+
+# Configure single cluster
+clusters:
+  ha-cluster: {}

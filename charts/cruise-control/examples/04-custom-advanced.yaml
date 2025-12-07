@@ -1,75 +1,18 @@
 # Advanced Custom Configuration Example
 # This example shows advanced customization with:
-# - Custom capacity limits
+# - Custom capacity limits per broker type
 # - Advanced broker configurations
 # - Custom anomaly detection settings
-# - Specialized JVM settings
-# - Custom goals configuration
+# - Specialized goals configuration
+# - Self-healing enabled
+# - Custom JVM settings
 
 image:
   repository: ghcr.io/devops-ia/kafka-cruise-control
   tag: "latest"
   pullPolicy: IfNotPresent
 
-env:
-  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker:9092"
-  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
-  CAPACITY_CONFIG_FILE: "/config/capacity.json"
-  GOALS_CONFIG_FILE: "/config/goals.json"
-  ANOMALY_DETECTION_CONFIG: "/config/anomaly-detection.properties"
-  JAVA_OPTS: "-Xms1G -Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=20"
-
-configMap:
-  enabled: true
-  data:
-    capacity.json: |
-      {
-        "brokerCapacities": [
-          {
-            "brokerId": "-1",
-            "capacity": {
-              "DISK": "5000000",
-              "CPU": "100",
-              "NW_IN": "100000",
-              "NW_OUT": "100000"
-            }
-          }
-        ]
-      }
-    goals.json: |
-      {
-        "goals": [
-          "com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal",
-          "com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal",
-          "com.linkedin.kafka.cruisecontrol.analyzer.goals.DiskCapacityGoal",
-          "com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkInboundCapacityGoal",
-          "com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkOutboundCapacityGoal",
-          "com.linkedin.kafka.cruisecontrol.analyzer.goals.CpuCapacityGoal",
-          "com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaDistributionGoal",
-          "com.linkedin.kafka.cruisecontrol.analyzer.goals.PotentialNwOutGoal",
-          "com.linkedin.kafka.cruisecontrol.analyzer.goals.DiskUsageDistributionGoal",
-          "com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkInboundUsageDistributionGoal",
-          "com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkOutboundUsageDistributionGoal",
-          "com.linkedin.kafka.cruisecontrol.analyzer.goals.CpuUsageDistributionGoal",
-          "com.linkedin.kafka.cruisecontrol.analyzer.goals.TopicReplicaDistributionGoal",
-          "com.linkedin.kafka.cruisecontrol.analyzer.goals.LeaderBytesInDistributionGoal"
-        ]
-      }
-    anomaly-detection.properties: |
-      anomaly.detection.goals=com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal,com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal
-      metric.anomaly.detection.interval.ms=180000
-      broker.failure.detection.threshold.ms=300000
-      self.healing.enabled=true
-
-volumeMounts:
-  - name: config-volume
-    mountPath: /config
-    readOnly: true
-
-volumes:
-  - name: config-volume
-    configMap:
-      name: cruise-control-config
+replicaCount: 2
 
 resources:
   limits:
@@ -78,6 +21,11 @@ resources:
   requests:
     cpu: 1000m
     memory: 2Gi
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 9090
 
 livenessProbe:
   enabled: true
@@ -95,3 +43,144 @@ startupProbe:
   enabled: true
   failureThreshold: 30
   periodSeconds: 10
+
+# Configure default settings for all clusters
+clustersDefaults:
+  # Cluster configuration
+  cluster:
+    min.insync.replicas: 2
+    compression.type: "lz4"
+
+  # Advanced capacity configuration with JBOD support
+  capacity:
+    type: capacityJBOD
+    config: |
+      {
+        "brokerCapacities": [
+          {
+            "brokerId": "-1",
+            "capacity": {
+              "DISK": {
+                "/mnt/data1": "2000000",
+                "/mnt/data2": "2000000",
+                "/mnt/data3": "2000000"
+              },
+              "CPU": "100",
+              "NW_IN": "150000",
+              "NW_OUT": "150000"
+            },
+            "doc": "Default JBOD capacity configuration for brokers with 3 disks."
+          }
+        ]
+      }
+
+  # Advanced Cruise Control configuration
+  config:
+    # METADATA CLIENT
+    bootstrap.servers: "kafka-broker:9092"
+    client.id: "cruise-control-advanced"
+    connections.max.idle.ms: 540000
+
+    # LOAD MONITOR
+    broker.metric.sample.store.topic: "__KafkaCruiseControlModelTrainingSamples"
+    broker.metrics.window.ms: 300000
+    num.broker.metrics.windows: 20
+    min.samples.per.broker.metrics.window: 1
+    partition.metric.sample.store.topic: "__KafkaCruiseControlPartitionMetricSamples"
+    partition.metrics.window.ms: 300000
+    num.partition.metrics.windows: 5
+    min.samples.per.partition.metrics.window: 1
+    metric.sampler.class: com.linkedin.kafka.cruisecontrol.monitor.sampling.prometheus.PrometheusMetricSampler
+    prometheus.server.endpoint: thanos-query.prometheus:9090
+    metric.sampling.interval.ms: 120000
+    sample.store.topic.replication.factor: 2
+
+    # ANALYZER - Custom goals
+    cpu.balance.threshold: 1.1
+    cpu.capacity.threshold: 0.7
+    disk.balance.threshold: 1.1
+    disk.capacity.threshold: 0.8
+    network.inbound.balance.threshold: 1.1
+    network.inbound.capacity.threshold: 0.8
+    network.outbound.balance.threshold: 1.1
+    network.outbound.capacity.threshold: 0.8
+
+    # Custom default goals
+    default.goals:
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.DiskCapacityGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkInboundCapacityGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkOutboundCapacityGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.CpuCapacityGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaDistributionGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.DiskUsageDistributionGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkInboundUsageDistributionGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkOutboundUsageDistributionGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.CpuUsageDistributionGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.TopicReplicaDistributionGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.LeaderBytesInDistributionGoal
+
+    # Hard goals that must be satisfied
+    hard.goals:
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.DiskCapacityGoal
+
+    # Intra-broker goals for JBOD
+    intra.broker.goals:
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.IntraBrokerDiskCapacityGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.IntraBrokerDiskUsageDistributionGoal
+
+    # EXECUTOR
+    max.num.cluster.partition.movements: 1250
+    num.concurrent.partition.movements.per.broker: 5
+    num.concurrent.intra.broker.partition.movements: 2
+    num.concurrent.leader.movements: 1000
+    execution.progress.check.interval.ms: 10000
+
+    # ANOMALY DETECTOR - Advanced settings
+    anomaly.detection.interval.ms: "10000"
+    anomaly.detection.goals:
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.DiskCapacityGoal
+
+    # Metric anomaly detection
+    metric.anomaly.detection.interval.ms: 120000
+    metric.anomaly.percentile.upper.threshold: 90.0
+    metric.anomaly.percentile.lower.threshold: 10.0
+    metric.anomaly.analyzer.metrics:
+    - BROKER_PRODUCE_LOCAL_TIME_MS_50TH
+    - BROKER_PRODUCE_LOCAL_TIME_MS_999TH
+    - BROKER_CONSUMER_FETCH_LOCAL_TIME_MS_50TH
+    - BROKER_CONSUMER_FETCH_LOCAL_TIME_MS_999TH
+    - BROKER_LOG_FLUSH_TIME_MS_50TH
+    - BROKER_LOG_FLUSH_TIME_MS_999TH
+
+    # Self-healing configuration
+    self.healing.enabled: true
+    self.healing.broker.failure.enabled: true
+    self.healing.goal.violation.enabled: true
+    self.healing.disk.failure.enabled: true
+    self.healing.exclude.recently.demoted.brokers: true
+    self.healing.exclude.recently.removed.brokers: true
+
+    # WEBSERVER
+    webserver.http.port: 9090
+    webserver.http.address: 0.0.0.0
+    webserver.accesslog.enabled: true
+    webserver.request.maxBlockTimeMs: 10000
+    two.step.verification.enabled: true
+
+  # Log4j configuration
+  log4j:
+    rootLogger.level: INFO
+    logger.cruisecontrol.level: info
+    logger.detector.level: info
+    logger.operationLogger.level: info
+    logger.CruiseControlPublicAccessLogger.level: info
+
+# Configure single advanced cluster
+clusters:
+  advanced-cluster: {}

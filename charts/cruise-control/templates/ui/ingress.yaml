@@ -1,0 +1,61 @@
+{{- if and .Values.ui.ingress.enabled .Values.ui.enabled -}}
+{{- $root := . -}}
+{{- $fullName := include "cruise-control.fullname" $root -}}
+{{- if and $root.Values.ui.ingress.className (not (semverCompare ">=1.18-0" $root.Capabilities.KubeVersion.GitVersion)) }}
+  {{- if not (hasKey $root.Values.ui.ingress.annotations "kubernetes.io/ingress.class") }}
+  {{- $_ := set $root.Values.ui.ingress.annotations "kubernetes.io/ingress.class" $root.Values.ui.ingress.className}}
+  {{- end }}
+{{- end }}
+{{- if semverCompare ">=1.19-0" $root.Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" $root.Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-ui
+  labels:
+    {{- include "cruise-control.ui.labels" $root | nindent 4 }}
+  annotations:
+    {{- with $root.Values.ui.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if and $root.Values.ui.ingress.className (semverCompare ">=1.18-0" $root.Capabilities.KubeVersion.GitVersion) }}
+  ingressClassName: {{ $root.Values.ui.ingress.className }}
+  {{- end }}
+  {{- if $root.Values.ui.ingress.tls }}
+  tls:
+    {{- range $tls := $root.Values.ui.ingress.tls }}
+    - hosts:
+        {{- range $h := $tls.hosts }}
+        - {{ $h | quote }}
+        {{- end }}
+      secretName: {{ $tls.secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range $host := $root.Values.ui.ingress.hosts }}
+    - host: {{ $host.host | quote }}
+      http:
+        paths:
+          {{- range $p := $host.paths }}
+          - path: {{ $p.path }}
+            {{- if semverCompare ">=1.18-0" $root.Capabilities.KubeVersion.GitVersion }}
+            pathType: {{ $p.pathType }}
+            {{- end }}
+            backend:
+              {{- if semverCompare ">=1.19-0" $root.Capabilities.KubeVersion.GitVersion }}
+              service:
+                name: {{ $fullName }}-ui
+                port:
+                  number: {{ $root.Values.ui.service.port | default 80 }}
+              {{- else }}
+              serviceName: {{ $fullName }}-ui
+              servicePort: {{ $root.Values.ui.service.port | default 80 }}
+              {{- end }}
+          {{- end }}
+    {{- end }}
+{{- end }}

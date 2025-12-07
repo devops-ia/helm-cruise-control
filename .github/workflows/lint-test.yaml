@@ -1,27 +1,31 @@
-name: Lint and Test Charts
+name: Lint and test PR Cruise Control
 
-on: pull_request
+on:
+  workflow_dispatch:
+  pull_request:
 
 jobs:
   lint-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           fetch-depth: 0
 
       # default install latest (stable)
       - name: Set up Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: 3.x
           check-latest: true
 
       - name: Set up chart-testing
-        uses: helm/chart-testing-action@v2
+        uses: helm/chart-testing-action@0d28d3144d3a25ea2cc349d6e59901c4ff469b3b # v2.7.0
+        with:
+          yamale_version: "6.0.0"
 
       - name: Run chart-testing (list-changed)
         id: list-changed
@@ -35,11 +39,35 @@ jobs:
         if: steps.list-changed.outputs.changed == 'true'
         run: ct lint --config .github/ct.yaml
 
-      # TODO: uncomment when we've self-managed nodes
+      # # Deploy Kafka KRaft cluster for testing
+      # - name: Run Kafka KRaft Broker
+      #   if: steps.list-changed.outputs.changed == 'true'
+      #   uses: spicyparrot/kafka-kraft-action@f36354d3fe55174a962d4fc544f69c849dca29a0 # v1.1.3
+      #   with:
+      #     kafka-version: "3.7.0"
+
+      # # Verify Kafka cluster is running
+      # - name: Verify Kafka connectivity
+      #   if: steps.list-changed.outputs.changed == 'true'
+      #   run: |
+      #     echo "Testing connection to Kafka at ${{ env.kafka_runner_address }}:9093"
+      #     timeout 30 bash -c 'until nc -z ${{ env.kafka_runner_address }} 9093; do echo "Waiting for Kafka..."; sleep 2; done'
+      #     echo "Kafka is ready!"
+
+      # # kafka_runner_address env var created by the kafka-kraft-action step
+      # - name: Update bootstrap.servers in ci-common-values.yaml
+      #   if: steps.list-changed.outputs.changed == 'true'
+      #   run: |
+      #     KAFKA_BOOTSTRAP="${{ env.kafka_runner_address }}:9093"
+      #     echo "Kafka bootstrap server: ${KAFKA_BOOTSTRAP}"
+      #     sed -i "s|bootstrap.servers:.*|bootstrap.servers: \"${KAFKA_BOOTSTRAP}\"|" charts/cruise-control/ci/ci-common-values.yaml
+      #     echo "Updated ci-common-values.yaml:"
+      #     grep "bootstrap.servers" charts/cruise-control/ci/ci-common-values.yaml
+
       # - name: Create kind cluster
       #   if: steps.list-changed.outputs.changed == 'true'
-      #   uses: helm/kind-action@v1
+      #   uses: helm/kind-action@92086f6be054225fa813e0a4b13787fc9088faab # v1.13.0
 
       # - name: Run chart-testing (install)
       #   if: steps.list-changed.outputs.changed == 'true'
-      #   run: ct install --config ct.yaml
+      #   run: ct install --config .github/ct.yaml

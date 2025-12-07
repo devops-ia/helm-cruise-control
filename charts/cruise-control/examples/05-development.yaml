@@ -1,10 +1,9 @@
 # Development Environment Configuration Example
 # This example shows a development setup with:
-# - Debug enabled
+# - Debug logging enabled
 # - Minimal resources
 # - Local development settings
-# - Hot reload capabilities
-# - Debug port exposed
+# - Single cluster for dev environment
 
 image:
   repository: ghcr.io/devops-ia/kafka-cruise-control
@@ -12,23 +11,6 @@ image:
   pullPolicy: Always
 
 replicaCount: 1
-
-env:
-  KAFKA_BOOTSTRAP_SERVERS: "localhost:9092"
-  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
-  JAVA_OPTS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
-  DEVELOPMENT_MODE: "true"
-  LOG_LEVEL: "DEBUG"
-
-service:
-  type: NodePort
-  port: 9090
-  nodePort: 30090
-  extraPorts:
-    - name: debug
-      port: 5005
-      targetPort: 5005
-      nodePort: 30005
 
 resources:
   limits:
@@ -38,33 +20,76 @@ resources:
     cpu: 200m
     memory: 512Mi
 
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 9090
+
 livenessProbe:
   enabled: false
 
 readinessProbe:
   enabled: false
 
-configMap:
-  enabled: true
-  data:
-    application-dev.properties: |
-      bootstrap.servers=localhost:9092
-      cruise.control.metrics.topic=__CruiseControlMetrics
-      cruise.control.metrics.reporter.bootstrap.servers=localhost:9092
-      cruise.control.metrics.reporter.kubernetes.mode=false
-      cruise.control.metrics.reporter.topic.pattern=.*
-      cruise.control.metrics.reporter.topic.metrics-per-message=100
-
-volumeMounts:
-  - name: config-volume
-    mountPath: /config
-    readOnly: true
-
-volumes:
-  - name: config-volume
-    configMap:
-      name: cruise-control-dev-config
-
 podAnnotations:
   development/mode: "enabled"
-  development/debug: "enabled"
+
+# Configure default settings for all clusters
+clustersDefaults:
+  # Cluster configuration
+  cluster:
+    min.insync.replicas: 1
+    default.replication.factor: 1
+
+  # Capacity configuration for development
+  capacity:
+    type: capacity
+    config: |
+      {
+        "brokerCapacities":[
+          {
+            "brokerId": "-1",
+            "capacity": {
+              "DISK": "100000",
+              "CPU": "100",
+              "NW_IN": "10000",
+              "NW_OUT": "10000"
+            },
+            "doc": "Development capacity configuration."
+          }
+        ]
+      }
+
+  # Cruise Control configuration
+  config:
+    # METADATA CLIENT
+    bootstrap.servers: "localhost:9092"
+    client.id: "cruise-control-dev"
+
+    # LOAD MONITOR
+    broker.metric.sample.store.topic: "__KafkaCruiseControlModelTrainingSamples"
+    partition.metric.sample.store.topic: "__KafkaCruiseControlPartitionMetricSamples"
+    metric.sampler.class: com.linkedin.kafka.cruisecontrol.monitor.sampling.prometheus.PrometheusMetricSampler
+    prometheus.server.endpoint: localhost:9090
+    sample.store.topic.replication.factor: 1
+
+    # ANOMALY DETECTOR
+    anomaly.detection.interval.ms: "30000"
+    self.healing.enabled: false
+
+    # WEBSERVER
+    webserver.http.port: 9090
+    webserver.http.address: 0.0.0.0
+    webserver.accesslog.enabled: true
+
+  # Log4j configuration with DEBUG level
+  log4j:
+    rootLogger.level: DEBUG
+    logger.cruisecontrol.level: debug
+    logger.detector.level: debug
+    logger.operationLogger.level: debug
+    logger.CruiseControlPublicAccessLogger.level: debug
+
+# Configure single development cluster
+clusters:
+  dev: {}

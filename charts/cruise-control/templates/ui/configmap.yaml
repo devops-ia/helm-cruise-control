@@ -1,0 +1,110 @@
+{{- if .Values.ui.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cruise-control.fullname" . }}-ui-config
+  labels:
+    {{- include "cruise-control.ui.labels" . | nindent 4 }}
+data:
+  config.csv: |
+    {{- range $clusterName, $clusterConfig := .Values.clusters }}
+    {{- $group := $clusterConfig.group | default "cluster" }}
+    {{ $group }},{{ $clusterName }},/{{ $clusterName }}/kafkacruisecontrol/
+    {{- end }}
+
+  nginx.conf: |
+    # User directive already removed in base image
+    pid /tmp/nginx.pid;
+
+    events {
+        worker_connections 1024;
+    }
+
+    http {
+        include       /etc/nginx/mime.types;
+        default_type  application/octet-stream;
+
+        # Logging
+        access_log /var/log/nginx/access.log;
+        error_log  /var/log/nginx/error.log warn;
+
+        # Performance
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+        client_max_body_size 20M;
+
+        # Gzip compression
+        gzip on;
+        gzip_vary on;
+        gzip_proxied any;
+        gzip_comp_level 6;
+        gzip_types text/plain text/css text/xml text/javascript application/json application/javascript application/xml+rss application/rss+xml font/truetype font/opentype application/vnd.ms-fontobject image/svg+xml;
+
+        # Temp paths already configured in base image
+        proxy_temp_path /tmp/proxy_temp;
+        client_body_temp_path /tmp/client_temp;
+        fastcgi_temp_path /tmp/fastcgi_temp;
+        uwsgi_temp_path /tmp/uwsgi_temp;
+        scgi_temp_path /tmp/scgi_temp;
+
+        # Upstream definitions for each Cruise Control cluster
+        {{- range $clusterName, $clusterConfig := .Values.clusters }}
+        upstream cc-{{ $clusterName }} {
+            server {{ include "cruise-control.cluster.fullname" (dict "clusterName" $clusterName "root" $) }}:{{ $.Values.service.port }};
+            keepalive 32;
+        }
+        {{- end }}
+
+        server {
+            listen {{ .Values.ui.service.targetPort | default 8080 }};
+            server_name _;
+
+            # Serve Cruise Control UI static files (already in base image)
+            location / {
+                root /usr/share/nginx/html;
+                index index.html index.htm;
+                try_files $uri $uri/ /index.html;
+
+                # Cache static assets
+                location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+                    expires 1y;
+                    add_header Cache-Control "public, immutable";
+                }
+            }
+
+            {{- range $clusterName, $clusterConfig := $.Values.clusters }}
+            # Proxy for {{ $clusterName }} cluster
+            location /{{ $clusterName }}/kafkacruisecontrol/ {
+                proxy_pass http://cc-{{ $clusterName }}/kafkacruisecontrol/;
+                proxy_http_version 1.1;
+
+                # Headers
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header Connection "";
+
+                # Buffering settings for streaming responses
+                proxy_buffering off;
+                proxy_request_buffering off;
+
+                # Timeouts for long-running operations
+                proxy_connect_timeout 60s;
+                proxy_send_timeout 300s;
+                proxy_read_timeout 300s;
+            }
+            {{- end }}
+
+            # Health check endpoint
+            location /health {
+                access_log off;
+                return 200 "healthy\n";
+                add_header Content-Type text/plain;
+            }
+        }
+    }
+{{- end }}

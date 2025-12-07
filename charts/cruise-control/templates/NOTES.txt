@@ -1,34 +1,114 @@
-Thank you for installing {{ .Chart.Name }}.
+Kafka Cruise Control has been deployed successfully!
 
-Your release is named {{ .Release.Name }}.
+RELEASE INFORMATION:
+  Name:      {{ .Release.Name }}
+  Namespace: {{ .Release.Namespace }}
+  Version:   {{ .Chart.Version }}
+{{- if .Chart.AppVersion }}
+  App:       {{ .Chart.AppVersion }}
+{{- end }}
 
-To get Kafka Cruise Control's status, run:
-  kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "cruise-control.name" . }},app.kubernetes.io/instance={{ .Release.Name }}"
+###
+# CLUSTER CONFIGURATION
+###
 
-To access the Cruise Control UI:
-{{- if .Values.ingress.enabled }}
-{{- range $host := .Values.ingress.hosts }}
+The following Kafka clusters have been configured:
+{{- range $clusterName, $clusterConfig := .Values.clusters }}
+{{- $group := $clusterConfig.group | default "cluster" }}
+
+  - Name:  {{ $clusterName }}
+    Group: {{ $group }}
+{{- if $clusterConfig.zookeeper }}
+    Zookeeper: {{ $clusterConfig.zookeeper.connect }}
+{{- end }}
+{{- if $clusterConfig.kafka }}
+    Bootstrap Servers: {{ $clusterConfig.kafka.bootstrapServers }}
+{{- end }}
+{{- end }}
+
+###
+# SERVER COMPONENTS
+###
+
+Check server status:
+  kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/component=server,app.kubernetes.io/instance={{ .Release.Name }}"
+
+View server logs:
+  kubectl logs -f --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/component=server,app.kubernetes.io/instance={{ .Release.Name }}"
+
+{{- if .Values.ui.enabled }}
+
+###
+# USER INTERFACE
+###
+
+Check UI status:
+  kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/component=ui,app.kubernetes.io/instance={{ .Release.Name }}"
+
+Access the Cruise Control UI:
+{{- if .Values.ui.ingress.enabled }}
+{{- range $host := .Values.ui.ingress.hosts }}
   {{- range .paths }}
-  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  http{{ if $.Values.ui.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
   {{- end }}
 {{- end }}
-{{- else if contains "NodePort" .Values.service.type }}
-  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "cruise-control.fullname" . }})
+{{- else if contains "NodePort" .Values.ui.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "cruise-control.fullname" . }}-ui)
   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
-  echo http://$NODE_IP:$NODE_PORT
-{{- else if contains "LoadBalancer" .Values.service.type }}
-     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
-           You can watch its status by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "cruise-control.fullname" . }}'
-  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "cruise-control.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
-  echo http://$SERVICE_IP:{{ .Values.service.port }}
-{{- else if contains "ClusterIP" .Values.service.type }}
-  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "cruise-control.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
-  echo "Visit http://127.0.0.1:9090 to use Cruise Control UI"
-  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 9090:9090
+  echo "UI available at: http://$NODE_IP:$NODE_PORT"
+{{- else if contains "LoadBalancer" .Values.ui.service.type }}
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+
+  Watch the service status:
+    kubectl get svc --namespace {{ .Release.Namespace }} {{ include "cruise-control.fullname" . }}-ui -w
+
+  Once available, get the URL:
+    export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "cruise-control.fullname" . }}-ui --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+    echo "UI available at: http://$SERVICE_IP:{{ .Values.ui.service.port }}"
+{{- else if contains "ClusterIP" .Values.ui.service.type }}
+  Port-forward to access locally:
+    export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/component=ui,app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+    kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:8080
+
+  Then visit: http://127.0.0.1:8080
 {{- end }}
 
-For more information about Kafka Cruise Control usage and configuration, please visit:
-https://github.com/linkedin/cruise-control
+The UI provides a reverse proxy to all configured clusters.
+Access each cluster through the following paths:
+{{- range $clusterName, $clusterConfig := .Values.clusters }}
+  - /{{ $clusterName }}/kafkacruisecontrol/
+{{- end }}
+{{- end }}
 
-To check the logs of the Cruise Control pod:
-  kubectl logs -f --namespace {{ .Release.Namespace }} $(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "cruise-control.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+###
+# USEFUL COMMANDS
+###
+
+List all resources:
+  kubectl get all --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/instance={{ .Release.Name }}"
+
+View Helm release information:
+  helm status {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+  helm get values {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+
+Upgrade the release:
+  helm upgrade {{ .Release.Name }} cruise-control --namespace {{ .Release.Namespace }} -f values.yaml
+
+Uninstall the release:
+  helm uninstall {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+
+###
+# DOCUMENTATION
+###
+
+Cruise Control Documentation:
+  https://github.com/linkedin/cruise-control/wiki
+
+Cruise Control REST API:
+  https://github.com/linkedin/cruise-control/wiki/REST-APIs
+
+Chart Repository:
+  https://github.com/devops-ia/helm-cruise-control
+
+Report Issues:
+  https://github.com/devops-ia/helm-cruise-control/issues
