@@ -1,0 +1,103 @@
+{{- if .Values.ui.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cruise-control.fullname" . }}-ui
+  {{- with .Values.ui.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    {{- include "cruise-control.ui.labels" . | nindent 4 }}
+    {{- with .Values.ui.service.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  type: {{ .Values.ui.service.type }}
+  {{- if and (eq .Values.ui.service.type "ClusterIP") (eq .Values.ui.service.clusterIP "None") }}
+  clusterIP: None
+  {{- else if .Values.ui.service.clusterIP }}
+  clusterIP: {{ .Values.ui.service.clusterIP }}
+  {{- end }}
+  {{- with .Values.ui.service.clusterIPs }}
+  clusterIPs:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.ui.service.externalIPs }}
+  externalIPs:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if and (eq .Values.ui.service.type "LoadBalancer") .Values.ui.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.ui.service.loadBalancerIP }}
+  {{- end }}
+  {{- if and (eq .Values.ui.service.type "LoadBalancer") .Values.ui.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml .Values.ui.service.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}
+  {{- if and (eq .Values.ui.service.type "LoadBalancer") .Values.ui.service.loadBalancerClass }}
+  loadBalancerClass: {{ .Values.ui.service.loadBalancerClass }}
+  {{- end }}
+  {{- if and (eq .Values.ui.service.type "ExternalName") .Values.ui.service.externalName }}
+  externalName: {{ .Values.ui.service.externalName }}
+  {{- end }}
+  {{- if and (or (eq .Values.ui.service.type "NodePort") (eq .Values.ui.service.type "LoadBalancer")) .Values.ui.service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ .Values.ui.service.externalTrafficPolicy }}
+  {{- end }}
+  {{- if .Values.ui.service.internalTrafficPolicy }}
+  internalTrafficPolicy: {{ .Values.ui.service.internalTrafficPolicy }}
+  {{- end }}
+  {{- if and (eq .Values.ui.service.type "LoadBalancer") .Values.ui.service.healthCheckNodePort }}
+  healthCheckNodePort: {{ .Values.ui.service.healthCheckNodePort }}
+  {{- end }}
+  {{- if .Values.ui.service.publishNotReadyAddresses }}
+  publishNotReadyAddresses: {{ .Values.ui.service.publishNotReadyAddresses }}
+  {{- end }}
+  {{- if .Values.ui.service.sessionAffinity }}
+  sessionAffinity: {{ .Values.ui.service.sessionAffinity }}
+  {{- if and (eq .Values.ui.service.sessionAffinity "ClientIP") .Values.ui.service.sessionAffinityConfig }}
+  sessionAffinityConfig:
+    clientIP:
+      {{- if .Values.ui.service.sessionAffinityConfig.clientIP.timeoutSeconds }}
+      timeoutSeconds: {{ .Values.ui.service.sessionAffinityConfig.clientIP.timeoutSeconds }}
+      {{- end }}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.ui.service.ipFamilies }}
+  ipFamilies:
+    {{- toYaml .Values.ui.service.ipFamilies | nindent 4 }}
+  {{- end }}
+  {{- if .Values.ui.service.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.ui.service.ipFamilyPolicy }}
+  {{- end }}
+  {{- if and (eq .Values.ui.service.type "LoadBalancer") (hasKey .Values.ui.service "allocateLoadBalancerNodePorts") }}
+  allocateLoadBalancerNodePorts: {{ .Values.ui.service.allocateLoadBalancerNodePorts }}
+  {{- end }}
+  {{- if .Values.ui.service.trafficDistribution }}
+  trafficDistribution: {{ .Values.ui.service.trafficDistribution }}
+  {{- end }}
+  ports:
+    - port: {{ .Values.ui.service.port }}
+      targetPort: {{ .Values.ui.service.targetPort | default .Values.ui.service.port }}
+      protocol: {{ .Values.ui.service.protocol | default "TCP" }}
+      name: {{ .Values.ui.service.portName | default "http" }}
+      {{- if and (or (eq .Values.ui.service.type "NodePort") (eq .Values.ui.service.type "LoadBalancer")) .Values.ui.service.nodePort }}
+      nodePort: {{ .Values.ui.service.nodePort }}
+      {{- end }}
+      {{- if .Values.ui.service.appProtocol }}
+      appProtocol: {{ .Values.ui.service.appProtocol }}
+      {{- end }}
+    {{- range $port := .Values.ui.service.extraPorts }}
+    - name: {{ $port.name }}
+      port: {{ $port.port }}
+      targetPort: {{ $port.targetPort | default $port.port }}
+      protocol: {{ $port.protocol | default "TCP" }}
+      {{- if and (or (eq .Values.ui.service.type "NodePort") (eq .Values.ui.service.type "LoadBalancer")) $port.nodePort }}
+      nodePort: {{ $port.nodePort }}
+      {{- end }}
+      {{- if $port.appProtocol }}
+      appProtocol: {{ $port.appProtocol }}
+      {{- end }}
+    {{- end }}
+  selector:
+    {{- include "cruise-control.ui.selectorLabels" . | nindent 4 }}
+{{- end }}

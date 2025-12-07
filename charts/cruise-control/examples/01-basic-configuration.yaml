@@ -3,7 +3,7 @@
 # - Basic resource settings
 # - Simple service configuration
 # - Default probes enabled
-# - Single replica deployment
+# - Single cluster deployment
 
 replicaCount: 1
 
@@ -22,7 +22,8 @@ resources:
 
 service:
   type: ClusterIP
-  port: 9090
+  port: 80
+  targetPort: 9090
 
 livenessProbe:
   enabled: true
@@ -34,6 +35,23 @@ readinessProbe:
   initialDelaySeconds: 30
   periodSeconds: 10
 
-env:
-  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker:9092"
-  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
+# Configure default settings for all clusters
+clustersDefaults:
+  config:
+    # METADATA CLIENT
+    bootstrap.servers: "kafka-broker:9092"
+    client.id: "cruise-control"
+
+    # LOAD MONITOR
+    broker.metric.sample.store.topic: "__KafkaCruiseControlModelTrainingSamples"
+    partition.metric.sample.store.topic: "__KafkaCruiseControlPartitionMetricSamples"
+    metric.sampler.class: com.linkedin.kafka.cruisecontrol.monitor.sampling.prometheus.PrometheusMetricSampler
+    prometheus.server.endpoint: thanos-query.prometheus:9090
+
+    # WEBSERVER
+    webserver.http.port: 9090
+    webserver.http.address: 0.0.0.0
+
+# Configure single cluster
+clusters:
+  production: {}

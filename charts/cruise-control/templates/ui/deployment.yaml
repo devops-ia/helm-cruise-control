@@ -1,0 +1,201 @@
+{{- if .Values.ui.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cruise-control.fullname" . }}-ui
+  {{- with .Values.ui.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    {{- include "cruise-control.ui.labels" . | nindent 4 }}
+    {{- with .Values.ui.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if not .Values.ui.autoscaling.enabled }}
+  replicas: {{ .Values.ui.replicaCount }}
+  {{- end }}
+  {{- with .Values.ui.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "cruise-control.ui.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/ui/configmap.yaml") . | sha256sum }}
+        {{- with .Values.ui.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "cruise-control.ui.labels" . | nindent 8 }}
+        {{- with .Values.ui.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.ui.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "cruise-control.ui.serviceAccountName" . }}
+      {{- with .Values.ui.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ui.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ui.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ui.terminationGracePeriodSeconds }}
+      terminationGracePeriodSeconds: {{ . }}
+      {{- end }}
+      containers:
+        - name: cruise-control-ui
+          image: "{{ .Values.ui.image.repository }}:{{ .Values.ui.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.ui.image.pullPolicy }}
+          {{- with .Values.ui.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.ui.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.ui.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.ui.env }}
+          env:
+            {{- range $key, $value := . }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
+          {{- if or .Values.ui.envFromConfigMap .Values.ui.envFromSecrets }}
+          env:
+            {{- range $key, $config := .Values.ui.envFromConfigMap }}
+            - name: {{ $key }}
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ $config.name }}
+                  key: {{ $config.key }}
+            {{- end }}
+            {{- range $key, $secret := .Values.ui.envFromSecrets }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret.name }}
+                  key: {{ $secret.key }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.ui.envFromFiles }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.ui.service.targetPort }}
+              protocol: TCP
+          {{- if .Values.ui.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: {{ .Values.ui.livenessProbe.failureThreshold }}
+            initialDelaySeconds: {{ .Values.ui.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.ui.livenessProbe.periodSeconds }}
+            successThreshold: {{ .Values.ui.livenessProbe.successThreshold }}
+            timeoutSeconds: {{ .Values.ui.livenessProbe.timeoutSeconds }}
+          {{- else if .Values.ui.livenessProbeCustom }}
+          livenessProbe:
+            {{- toYaml .Values.ui.livenessProbeCustom | nindent 12 }}
+          {{- end }}
+          {{- if .Values.ui.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: {{ .Values.ui.readinessProbe.failureThreshold }}
+            initialDelaySeconds: {{ .Values.ui.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.ui.readinessProbe.periodSeconds }}
+            successThreshold: {{ .Values.ui.readinessProbe.successThreshold }}
+            timeoutSeconds: {{ .Values.ui.readinessProbe.timeoutSeconds }}
+          {{- else if .Values.ui.readinessProbeCustom }}
+          readinessProbe:
+            {{- toYaml .Values.ui.readinessProbeCustom | nindent 12 }}
+          {{- end }}
+          {{- if .Values.ui.startupProbe.enabled }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: {{ .Values.ui.startupProbe.failureThreshold }}
+            initialDelaySeconds: {{ .Values.ui.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.ui.startupProbe.periodSeconds }}
+            successThreshold: {{ .Values.ui.startupProbe.successThreshold }}
+            timeoutSeconds: {{ .Values.ui.startupProbe.timeoutSeconds }}
+          {{- else if .Values.ui.startupProbeCustom }}
+          startupProbe:
+            {{- toYaml .Values.ui.startupProbeCustom | nindent 12 }}
+          {{- end }}
+          {{- with .Values.ui.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.ui.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: ui-config
+              mountPath: /usr/share/nginx/html/static/config.csv
+              subPath: config.csv
+            {{- with .Values.ui.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: {{ include "cruise-control.fullname" . }}-ui-config
+        - name: ui-config
+          configMap:
+            name: {{ include "cruise-control.fullname" . }}-ui-config
+        {{- with .Values.ui.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.ui.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ui.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ui.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "cruise-control.ui.patchTopologySpreadConstraints" . }}
+      {{- with .Values.ui.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ui.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ui.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+{{- end }}

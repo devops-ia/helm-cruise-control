@@ -1,311 +1,64 @@
-replicaCount: 2
-
-image:
-  repository: ghcr.io/devops-ia/kafka-cruise-control
-  pullPolicy: Always
-  tag: "latest"
-
-nameOverride: "ci-cc"
-fullnameOverride: "ci-cruise-control"
-
-imagePullSecrets:
-  - name: ci-registry-secret
-
-serviceAccount:
-  create: true
-  automount: true
-  annotations:
-    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/ci-cruise-control"
-  name: "ci-cc-sa"
-
-testConnection:
-  enabled: true
-  repository: busybox
-  tag: "latest"
+replicaCount: 1
 
 env:
-  JAVA_OPTS: "-Xms512m -Xmx1g"
-  LOG_LEVEL: "DEBUG"
-
-envFromConfigMap:
-  KAFKA_OPTS:
-    name: kafka-config
-    key: kafka-opts
-
-envFromSecrets:
-  KAFKA_PASSWORD:
-    name: kafka-secrets
-    key: password
-
-envFromFiles: []
-
-secrets:
-  - name: kafka-credentials
-    data:
-      username: admin
-      password: test-password
-
-initContainers:
-  - name: wait-for-kafka
-    image: busybox
-    command: ['sh', '-c', 'until nc -z kafka 9092; do echo waiting for kafka; sleep 2; done;']
-
-args:
-  - "--config"
-  - "/config/cruisecontrol.properties"
-
-command:
-  - "/bin/bash"
-  - "-c"
-
-service:
-  type: ClusterIP
-  port: 9090
-  targetPort: 9090
-  extraPorts:
-    - name: metrics
-      port: 8080
-      targetPort: 8080
-
-networkPolicy:
-  enabled: true
-  policyTypes:
-    - Ingress
-    - Egress
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              name: kafka
-  egress:
-    - to:
-        - ipBlock:
-            cidr: 10.0.0.0/8
-
-lifecycle:
-  preStop:
-    exec:
-      command: ["sh", "-c", "sleep 10"]
-
-terminationGracePeriodSeconds: 60
-
-livenessProbe:
-  enabled: true
-  failureThreshold: 3
-  initialDelaySeconds: 30
-  periodSeconds: 10
-  successThreshold: 1
-  timeoutSeconds: 5
-
-livenessProbeCustom: {}
-
-readinessProbe:
-  enabled: true
-  failureThreshold: 3
-  initialDelaySeconds: 20
-  periodSeconds: 10
-  successThreshold: 1
-  timeoutSeconds: 3
-
-readinessProbeCustom: {}
-
-startupProbe:
-  enabled: true
-  failureThreshold: 30
-  initialDelaySeconds: 30
-  periodSeconds: 10
-  successThreshold: 1
-  timeoutSeconds: 5
-
-startupProbeCustom: {}
-
-annotations: {}
-
-labels: {}
-
-podAnnotations:
-  prometheus.io/scrape: "true"
-  prometheus.io/port: "8080"
-
-podLabels:
-  environment: "ci"
-  app-type: "kafka-management"
-
-podSecurityContext:
-  fsGroup: 1000
-
-securityContext:
-  capabilities:
-    drop:
-      - ALL
-  readOnlyRootFilesystem: true
-  runAsNonRoot: true
-  runAsUser: 1000
-
-ingress:
-  enabled: true
-  className: "nginx"
-  annotations:
-    kubernetes.io/ingress.class: nginx
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
-  hosts:
-    - host: cruise-control-ci.local
-      paths:
-        - path: /
-          pathType: Prefix
-  tls:
-    - secretName: cruise-control-tls
-      hosts:
-        - cruise-control-ci.local
+  JAVA_OPTS: "-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom"
+  LOG_LEVEL: "INFO"
 
 resources:
   limits:
-    cpu: "2"
-    memory: 2Gi
-  requests:
-    cpu: "500m"
     memory: 1Gi
+  requests:
+    cpu: "250m"
+    memory: 512Mi
 
-podDisruptionBudget:
-  enabled: true
-  maxUnavailable: 1
+ui:
+  replicaCount: 1
 
-autoscaling:
-  enabled: true
-  minReplicas: 2
-  maxReplicas: 5
-  targetCPUUtilizationPercentage: 80
-  targetMemoryUtilizationPercentage: 80
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: cruise-control.k8s.orb.local
+        paths:
+          - path: /
+            pathType: Prefix
 
-volumes:
-  - name: config
-    configMap:
-      name: cruise-control-config
-  - name: logs
-    emptyDir: {}
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      cpu: "100m"
+      memory: 128Mi
 
-volumeMounts:
-  - name: config
-    mountPath: "/config"
-    readOnly: true
-  - name: logs
-    mountPath: "/var/log/cruise-control"
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
 
-nodeSelector:
-  kubernetes.io/os: linux
-  node-type: kafka-tools
-
-tolerations:
-  - key: "kafka-tools"
-    operator: "Equal"
-    value: "true"
-    effect: "NoSchedule"
-
-affinity:
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      nodeSelectorTerms:
-        - matchExpressions:
-            - key: kubernetes.io/os
-              operator: In
-              values:
-                - linux
-  podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchExpressions:
-              - key: app.kubernetes.io/name
-                operator: In
-                values:
-                  - cruise-control
-          topologyKey: kubernetes.io/hostname
-
-topologySpreadConstraints:
-  - maxSkew: 1
-    topologyKey: topology.kubernetes.io/zone
-    whenUnsatisfiable: DoNotSchedule
-    labelSelector:
-      matchLabels:
-        app.kubernetes.io/name: cruise-control
-
-jaas:
-  enabled: true
-  config: |
-    Client {
-      org.apache.kafka.common.security.plain.PlainLoginModule required
-      username="test-user"
-      password="test-password";
-    };
-
-cluster:
-  min.insync.replicas: 2
-  default.replication.factor: 3
-
-capacity:
-  type: capacity
-  config: |
-    {
-      "brokerCapacities": [
-        {
-          "brokerId": "-1",
-          "capacity": {
-            "DISK": "5000",
-            "CPU": "100",
-            "NW_IN": "10000",
-            "NW_OUT": "10000"
-          },
-          "doc": "This is the CI test capacity configuration."
-        }
-      ]
-    }
-
-config:
-  # METADATA CLIENT
-  bootstrap.servers: "kafka:9092"
-  client.id: "cruise-control-ci"
-  connections.max.idle.ms: 540000
-
-  # LOAD MONITOR
-  broker.metric.sample.store.topic: "__KafkaCruiseControlModelTrainingSamples"
-  broker.metrics.window.ms: 300000
-  broker.sample.store.topic.partition.count: 8
-  metric.sampler.class: "com.linkedin.kafka.cruisecontrol.monitor.sampling.CruiseControlMetricsReporterSampler"
-  metric.sampler.partition.assignor.class: "com.linkedin.kafka.cruisecontrol.monitor.sampling.DefaultMetricSamplerPartitionAssignor"
-  metric.sampling.interval.ms: 120000
-  min.samples.per.broker.metrics.window: 1
-  min.samples.per.partition.metrics.window: 1
-  num.broker.metrics.windows: 20
-  num.partition.metrics.windows: 5
-  num.sample.loading.threads: 8
-  partition.metric.sample.store.topic: "__KafkaCruiseControlPartitionMetricSamples"
-  partition.metrics.window.ms: 300000
-  partition.sample.store.topic.partition.count: 8
-  sample.store.class: "com.linkedin.kafka.cruisecontrol.monitor.sampling.KafkaSampleStore"
-  sample.store.topic.replication.factor: 2
-  sampling.allow.cpu.capacity.estimation: true
-
-  # ANALYZER
-  default.goals:
-    - com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal
-    - com.linkedin.kafka.cruisecontrol.analyzer.goals.MinTopicLeadersPerBrokerGoal
-    - com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal
-    - com.linkedin.kafka.cruisecontrol.analyzer.goals.DiskCapacityGoal
-    - com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkInboundCapacityGoal
-    - com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkOutboundCapacityGoal
-    - com.linkedin.kafka.cruisecontrol.analyzer.goals.CpuCapacityGoal
-
-  # WEBSERVER
-  webserver.http.port: 9090
-  webserver.http.cors.enabled: true
-  webserver.ui.enabled: true
-  two.step.verification.enabled: true
-
-  # ANOMALY DETECTOR
-  self.healing.enabled: true
-
-log4j:
-  rootLogger.level: DEBUG
-  appenders: console, kafkaCruiseControlAppender
-  property.filename: /var/log/cruise-control
+clusters:
+  cluster-dev:
+    group: "develop"
+    cluster:
+      min.insync.replicas: 1
+      default.replication.factor: 1
+    config:
+      bootstrap.servers: "my-cluster-kafka-bootstrap.kafka:9092"
+      client.id: "cruise-control-dev"
+      kafka.broker.failure.detection.enable: true
+      zookeeper.connect: false
+      self.healing.target.topic.replication.factor: 1
+      sample.store.topic.replication.factor: 1
+  cluster-prod:
+    group: "production"
+    cluster:
+      min.insync.replicas: 1
+      default.replication.factor: 1
+    config:
+      bootstrap.servers: "my-cluster-kafka-bootstrap.kafka-prod:9092"
+      client.id: "cruise-control"
+      kafka.broker.failure.detection.enable: true
+      zookeeper.connect: false
+      self.healing.target.topic.replication.factor: 1
+      sample.store.topic.replication.factor: 1

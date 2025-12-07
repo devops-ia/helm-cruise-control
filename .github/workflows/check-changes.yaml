@@ -3,14 +3,14 @@ name: Check Cruise Control new releases
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 0 * * *' # every day
 
 jobs:
   check-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           fetch-depth: 0
 
@@ -21,7 +21,7 @@ jobs:
           echo "current_release=$current_release" >> $GITHUB_OUTPUT
 
       - name: Install updatecli
-        uses: updatecli/updatecli-action@v2
+        uses: updatecli/updatecli-action@9a21b6911fe58865c8346d4fde3470010f49bf31 # v2.97.0
 
       - name: Update dependencies
         run: |
@@ -42,7 +42,7 @@ jobs:
 
       - name: Update README.md Helm Chart
         if: steps.check_changes.outputs.release_changed == 'true'
-        uses: losisin/helm-docs-github-action@v1
+        uses: losisin/helm-docs-github-action@a57fae5676e4c55a228ea654a1bcaec8dd3cf5b5 # v1.6.2
         with:
           chart-search-root: charts/cruise-control
 
@@ -55,7 +55,7 @@ jobs:
 
       - name: Create PR with changes
         if: steps.check_changes.outputs.release_changed == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@84ae59a2cdc2258d6fa0732dd66352dddae2a412 # v7.0.9
         with:
           token: ${{ secrets.PAT_GITHUB }}
           commit-message: "fix: update Cruise Control version to ${{ steps.latest_release.outputs.latest_release }}"

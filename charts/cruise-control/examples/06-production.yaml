@@ -2,8 +2,9 @@
 # This example demonstrates a production setup with:
 # - High availability
 # - Production-grade resources
+# - Multiple clusters (dev, staging, prod)
 # - Strict security settings
-# - Automated backups
+# - Self-healing enabled for production
 
 image:
   repository: ghcr.io/devops-ia/kafka-cruise-control
@@ -35,12 +36,6 @@ resources:
     cpu: 2000m
     memory: 4Gi
 
-env:
-  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker-0.kafka-headless:9092,kafka-broker-1.kafka-headless:9092,kafka-broker-2.kafka-headless:9092"
-  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
-  JAVA_OPTS: "-XX:+UseG1GC -XX:MaxGCPauseMillis=20 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -Djava.security.egd=file:/dev/./urandom"
-  LOG_LEVEL: "INFO"
-
 securityContext:
   capabilities:
     drop:
@@ -56,15 +51,16 @@ podSecurityContext:
 
 service:
   type: ClusterIP
-  port: 9090
+  port: 80
+  targetPort: 9090
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-type: nlb
     service.beta.kubernetes.io/aws-load-balancer-internal: "true"
 
 ingress:
   enabled: true
+  className: nginx
   annotations:
-    kubernetes.io/ingress.class: nginx
     cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
   hosts:
@@ -72,6 +68,10 @@ ingress:
       paths:
         - path: /
           pathType: Prefix
+  tls:
+    - secretName: cruise-control-tls
+      hosts:
+        - cruise-control.prod.example.com
 
 livenessProbe:
   enabled: true
@@ -87,8 +87,167 @@ readinessProbe:
   timeoutSeconds: 3
   failureThreshold: 3
 
-backup:
+# Configure default settings for all clusters
+clustersDefaults:
+  # JAAS configuration template (disabled by default)
+  jaas:
+    enabled: false
+    config: |
+      KafkaClient {
+        org.apache.kafka.common.security.plain.PlainLoginModule required
+        username="cruise-control"
+        password="changeme";
+      };
+
+  # Cluster configuration
+  cluster:
+    min.insync.replicas: 2
+    default.replication.factor: 3
+
+  # Capacity configuration
+  capacity:
+    type: capacity
+    config: |
+      {
+        "brokerCapacities":[
+          {
+            "brokerId": "-1",
+            "capacity": {
+              "DISK": "100000",
+              "CPU": "100",
+              "NW_IN": "125000",
+              "NW_OUT": "125000"
+            },
+            "doc": "Default capacity configuration."
+          }
+        ]
+      }
+
+  # Cruise Control configuration
+  config:
+    # METADATA CLIENT
+    client.id: "cruise-control"
+    connections.max.idle.ms: 540000
+
+    # LOAD MONITOR
+    broker.metric.sample.store.topic: "__KafkaCruiseControlModelTrainingSamples"
+    partition.metric.sample.store.topic: "__KafkaCruiseControlPartitionMetricSamples"
+    metric.sampler.class: com.linkedin.kafka.cruisecontrol.monitor.sampling.prometheus.PrometheusMetricSampler
+    sample.store.topic.replication.factor: 3
+
+    # ANOMALY DETECTOR
+    anomaly.detection.interval.ms: "10000"
+    self.healing.enabled: false
+
+    # WEBSERVER
+    webserver.http.port: 9090
+    webserver.http.address: 0.0.0.0
+    webserver.accesslog.enabled: true
+    two.step.verification.enabled: true
+
+  # Log4j configuration
+  log4j:
+    rootLogger.level: INFO
+    logger.cruisecontrol.level: info
+    logger.detector.level: info
+    logger.operationLogger.level: info
+    logger.CruiseControlPublicAccessLogger.level: info
+
+# Configure multiple clusters
+clusters:
+  # Development cluster
+  dev:
+    group: "development"
+    config:
+      bootstrap.servers: "kafka-dev:9092"
+      prometheus.server.endpoint: thanos-query-dev.prometheus:9090
+
+  # Staging cluster
+  staging:
+    group: "staging"
+    config:
+      bootstrap.servers: "kafka-staging:9092"
+      prometheus.server.endpoint: thanos-query-staging.prometheus:9090
+      self.healing.enabled: true
+
+  # Production cluster with enhanced settings
+  prod:
+    group: "production"
+
+    # Enable JAAS for production
+    jaas:
+      enabled: true
+      config: |
+        KafkaClient {
+          org.apache.kafka.common.security.plain.PlainLoginModule required
+          username="cruise-control-prod"
+          password="secure-password-here";
+        };
+
+    # Production cluster settings
+    cluster:
+      min.insync.replicas: 3
+      default.replication.factor: 3
+
+    # Higher capacity for production brokers
+    capacity:
+      config: |
+        {
+          "brokerCapacities":[
+            {
+              "brokerId": "-1",
+              "capacity": {
+                "DISK": "500000",
+                "CPU": "200",
+                "NW_IN": "250000",
+                "NW_OUT": "250000"
+              },
+              "doc": "Production capacity configuration."
+            }
+          ]
+        }
+
+    # Production Cruise Control configuration
+    config:
+      bootstrap.servers: "kafka-prod-0.kafka-headless:9092,kafka-prod-1.kafka-headless:9092,kafka-prod-2.kafka-headless:9092"
+      prometheus.server.endpoint: thanos-query-prod.prometheus:9090
+      self.healing.enabled: true
+      self.healing.broker.failure.enabled: true
+      self.healing.goal.violation.enabled: true
+
+    # Production log4j with WARN level
+    log4j:
+      rootLogger.level: WARN
+      logger.cruisecontrol.level: warn
+      logger.detector.level: warn
+      logger.operationLogger.level: warn
+      logger.CruiseControlPublicAccessLogger.level: warn
+
+# UI configuration for multi-cluster setup
+ui:
   enabled: true
-  schedule: "0 1 * * *"
-  retention: "720h"
-  destination: "s3://backups/cruise-control/"
+  replicaCount: 2
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: cruise-control.prod.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: cruise-control-ui-tls
+        hosts:
+          - cruise-control.prod.example.com
