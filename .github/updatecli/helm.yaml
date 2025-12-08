@@ -5,6 +5,13 @@ sources:
       image: devopsiaci/cruise-control
       architecture: linux/amd64
       tagfilter: "jdk17-cc*"
+  cruise-control-ui:
+    kind: dockerimage
+    spec:
+      image: devopsiaci/cruise-control-ui
+      architecture: linux/amd64
+      versionfilter:
+        kind: semver
 conditions: {}
 targets:
   cruise-control-helm:
@@ -16,3 +23,12 @@ targets:
       key: $.appVersion
       versionincrement: patch
     sourceid: cruise-control
+  cruise-control-ui-helm:
+    name: bump cruise-control helm chart
+    kind: helmchart
+    spec:
+      name: charts/cruise-control
+      file: values.yaml
+      key: $.ui.image.tag
+      versionincrement: none
+    sourceid: cruise-control-ui

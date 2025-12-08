@@ -1,4 +1,4 @@
-{{- range .Values.configMaps }}
+{{- range $.Values.configMaps }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -16,16 +16,18 @@ data:
   {{- end }}
   {{- end }}
 {{- end }}
+{{- range $clusterName, $clusterConfig := .Values.clusters }}
+{{- $mergedConfig := include "cruise-control.cluster.config" (dict "clusterName" $clusterName "clusterConfig" $clusterConfig "root" $) | fromJson }}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "cruise-control.fullname" . }}-config
+  name: {{ include "cruise-control.cluster.fullname" (dict "clusterName" $clusterName "root" $) }}-config
   labels:
-    {{- include "cruise-control.labels" . | nindent 4 }}
+    {{- include "cruise-control.cluster.labels" (dict "clusterName" $clusterName "root" $) | nindent 4 }}
 data:
   cruisecontrol.properties: |
-    {{- range $key, $value := .Values.config }}
+    {{- range $key, $value := $mergedConfig.config }}
       {{- $valueStr := printf "%v" $value }}
       {{- if and (regexMatch "^[0-9]+$" $valueStr) (lt (len $valueStr) 10) }}
         {{ $key }}={{ $valueStr }}
@@ -39,20 +41,23 @@ data:
         {{ $key }}={{ $value }}
       {{- end }}
     {{- end }}
-        capacity.config.file=config/{{ .Values.capacity.type }}.json
+        capacity.config.file=config/{{ $mergedConfig.capacity.type }}.json
 
   clusterConfigs.json: |
-    {{- .Values.cluster | toPrettyJson | nindent 4 }}
+    {{- $mergedConfig.cluster | toPrettyJson | nindent 4 }}
 
-  {{ .Values.capacity.type }}.json: |
-    {{- .Values.capacity.config | nindent 4 }}
+  {{- if $mergedConfig.capacity }}
+  {{ $mergedConfig.capacity.type }}.json: |
+    {{- $mergedConfig.capacity.config | nindent 4 }}
+  {{- end }}
 
-  {{- if .Values.jaas.enabled }}
+  {{- if $mergedConfig.jaas.enabled }}
   cruise_control_jaas.conf: |
-    {{- .Values.jaas.config | nindent 4 }}
+    {{- $mergedConfig.jaas.config | nindent 4 }}
   {{- end }}
 
   log4j.properties: |
-    {{- range $key, $value := .Values.log4j }}
+    {{- range $key, $value := $mergedConfig.log4j }}
       {{ $key }}={{ $value }}
     {{- end }}
+{{- end }}

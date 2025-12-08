@@ -4,12 +4,29 @@
 # - Secure communication with Kafka
 # - Secret management
 # - Security context settings
+# - Network policies
 
 image:
   repository: ghcr.io/devops-ia/kafka-cruise-control
   tag: "latest"
   pullPolicy: IfNotPresent
 
+replicaCount: 1
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 9090
+
+# Secret management
 secrets:
   - name: kafka-certificates
     data:
@@ -37,6 +54,7 @@ volumes:
     secret:
       secretName: kafka-certificates
 
+# Security context
 podSecurityContext:
   fsGroup: 1000
   runAsUser: 1000
@@ -50,13 +68,7 @@ securityContext:
   runAsNonRoot: true
   runAsUser: 1000
 
-env:
-  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker:9093"
-  KAFKA_SECURITY_PROTOCOL: "SSL"
-  SSL_KEYSTORE_LOCATION: "/etc/kafka/certs/kafka.keystore.jks"
-  SSL_TRUSTSTORE_LOCATION: "/etc/kafka/certs/kafka.truststore.jks"
-  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
-
+# Network policy
 networkPolicy:
   enabled: true
   policyTypes:
@@ -67,7 +79,7 @@ networkPolicy:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: kafka
-    - ports:
+      ports:
         - protocol: TCP
           port: 9090
   egress:
@@ -75,6 +87,73 @@ networkPolicy:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: kafka
-    - ports:
+      ports:
         - protocol: TCP
           port: 9093
+
+# Configure default settings for all clusters
+clustersDefaults:
+  # JAAS configuration for secure authentication
+  jaas:
+    enabled: true
+    config: |
+      KafkaClient {
+        org.apache.kafka.common.security.plain.PlainLoginModule required
+        username="cruise-control"
+        password="${KAFKA_PASSWORD}";
+      };
+
+  # Cluster configuration
+  cluster:
+    min.insync.replicas: 2
+
+  # Capacity configuration
+  capacity:
+    type: capacity
+    config: |
+      {
+        "brokerCapacities":[
+          {
+            "brokerId": "-1",
+            "capacity": {
+              "DISK": "100000",
+              "CPU": "100",
+              "NW_IN": "125000",
+              "NW_OUT": "125000"
+            },
+            "doc": "Secure cluster capacity configuration."
+          }
+        ]
+      }
+
+  # Cruise Control configuration with TLS
+  config:
+    # METADATA CLIENT
+    bootstrap.servers: "kafka-broker:9093"
+    client.id: "cruise-control-secure"
+    security.protocol: "SSL"
+
+    # LOAD MONITOR
+    broker.metric.sample.store.topic: "__KafkaCruiseControlModelTrainingSamples"
+    partition.metric.sample.store.topic: "__KafkaCruiseControlPartitionMetricSamples"
+    metric.sampler.class: com.linkedin.kafka.cruisecontrol.monitor.sampling.prometheus.PrometheusMetricSampler
+    prometheus.server.endpoint: thanos-query.prometheus:9090
+    sample.store.topic.replication.factor: 2
+
+    # ANOMALY DETECTOR
+    anomaly.detection.interval.ms: "10000"
+    self.healing.enabled: false
+
+    # WEBSERVER
+    webserver.http.port: 9090
+    webserver.http.address: 0.0.0.0
+    webserver.accesslog.enabled: true
+
+  # Log4j configuration
+  log4j:
+    rootLogger.level: INFO
+    logger.cruisecontrol.level: info
+
+# Configure single secure cluster
+clusters:
+  secure-cluster: {}

@@ -3,8 +3,9 @@
 # - JVM tuning for performance
 # - Optimized resource allocation
 # - Fine-tuned Kafka settings
-# - Performance monitoring
-# - Aggressive garbage collection
+# - Performance monitoring configurations
+# - Aggressive garbage collection settings
+# - High-performance node selection
 
 image:
   repository: ghcr.io/devops-ia/kafka-cruise-control
@@ -12,54 +13,6 @@ image:
   pullPolicy: IfNotPresent
 
 replicaCount: 1
-
-env:
-  KAFKA_BOOTSTRAP_SERVERS: "kafka-broker:9092"
-  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
-  JAVA_OPTS: >-
-    -XX:+UseG1GC
-    -XX:MaxGCPauseMillis=20
-    -XX:InitiatingHeapOccupancyPercent=35
-    -XX:+ExplicitGCInvokesConcurrent
-    -XX:MaxInlineLevel=15
-    -Xms4G
-    -Xmx4G
-    -XX:+UseCompressedOops
-    -XX:+AlwaysPreTouch
-    -XX:+DisableExplicitGC
-  SAMPLE_STORE_CLASS: "com.linkedin.kafka.cruisecontrol.monitor.sampling.CruiseControlMetricsReporterSampler"
-  METRICS_REPORTER_ENABLED: "true"
-  PARTITION_METRICS_WINDOW_MS: "300000"
-  NUM_PARTITION_METRICS_WINDOWS: "5"
-  MIN_SAMPLES_PER_PARTITION_METRICS_WINDOW: "3"
-  BROKER_METRICS_WINDOW_MS: "300000"
-  NUM_BROKER_METRICS_WINDOWS: "5"
-  MIN_SAMPLES_PER_BROKER_METRICS_WINDOW: "3"
-
-configMap:
-  enabled: true
-  data:
-    cruisecontrol.properties: |
-      # Kafka Metrics Reporter Configurations
-      kafka.metrics.polling.interval.seconds=10
-      kafka.metrics.reporter.enabled=true
-      kafka.metrics.topic.metrics-per-message=100
-
-      # Performance Configurations
-      num.metric.fetchers=4
-      num.metric.samples.per.fetch=100
-      concurrent.partition.movements.per.broker=16
-      concurrent.leader.movements=1000
-      max.num.cluster.movements=1000
-
-      # Analyzer Configurations
-      default.goals=com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal,com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal
-      hard.goals=com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal
-
-      # Executor Configurations
-      num.concurrent.partition.movements.per.broker=10
-      num.concurrent.leader.movements=500
-      execution.progress.check.interval.ms=10000
 
 resources:
   limits:
@@ -71,7 +24,8 @@ resources:
 
 service:
   type: ClusterIP
-  port: 9090
+  port: 80
+  targetPort: 9090
 
 livenessProbe:
   enabled: true
@@ -105,3 +59,117 @@ affinity:
               operator: In
               values:
                 - high-performance
+
+# JVM performance tuning via environment variables
+env:
+  JAVA_OPTS: >-
+    -Xms4G
+    -Xmx4G
+    -XX:+UseG1GC
+    -XX:MaxGCPauseMillis=20
+    -XX:InitiatingHeapOccupancyPercent=35
+    -XX:+ExplicitGCInvokesConcurrent
+    -XX:MaxInlineLevel=15
+    -XX:+UseCompressedOops
+    -XX:+AlwaysPreTouch
+    -XX:+DisableExplicitGC
+
+# Configure default settings for all clusters
+clustersDefaults:
+  # Cluster configuration
+  cluster:
+    min.insync.replicas: 2
+
+  # Capacity configuration
+  capacity:
+    type: capacity
+    config: |
+      {
+        "brokerCapacities": [
+          {
+            "brokerId": "-1",
+            "capacity": {
+              "DISK": "5000000",
+              "CPU": "100",
+              "NW_IN": "200000",
+              "NW_OUT": "200000"
+            },
+            "doc": "High-performance capacity configuration."
+          }
+        ]
+      }
+
+  # Performance-tuned Cruise Control configuration
+  config:
+    # METADATA CLIENT
+    bootstrap.servers: "kafka-broker:9092"
+    client.id: "cruise-control-perf"
+    connections.max.idle.ms: 540000
+
+    # LOAD MONITOR - Performance tuning
+    broker.metric.sample.store.topic: "__KafkaCruiseControlModelTrainingSamples"
+    broker.metrics.window.ms: 300000
+    num.broker.metrics.windows: 5
+    min.samples.per.broker.metrics.window: 3
+    partition.metric.sample.store.topic: "__KafkaCruiseControlPartitionMetricSamples"
+    partition.metrics.window.ms: 300000
+    num.partition.metrics.windows: 5
+    min.samples.per.partition.metrics.window: 3
+    metric.sampler.class: com.linkedin.kafka.cruisecontrol.monitor.sampling.prometheus.PrometheusMetricSampler
+    prometheus.server.endpoint: thanos-query.prometheus:9090
+    metric.sampling.interval.ms: 120000
+    sample.store.topic.replication.factor: 2
+    num.sample.loading.threads: 8
+
+    # ANALYZER - Performance goals
+    cpu.balance.threshold: 1.05
+    cpu.capacity.threshold: 0.8
+    disk.balance.threshold: 1.05
+    disk.capacity.threshold: 0.85
+    network.inbound.balance.threshold: 1.05
+    network.inbound.capacity.threshold: 0.8
+    network.outbound.balance.threshold: 1.05
+    network.outbound.capacity.threshold: 0.8
+
+    default.goals:
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.DiskCapacityGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkInboundCapacityGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.NetworkOutboundCapacityGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.CpuCapacityGoal
+
+    hard.goals:
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal
+
+    # EXECUTOR - Performance optimization
+    max.num.cluster.partition.movements: 1000
+    num.concurrent.partition.movements.per.broker: 16
+    num.concurrent.intra.broker.partition.movements: 4
+    num.concurrent.leader.movements: 1000
+    execution.progress.check.interval.ms: 10000
+
+    replica.movement.strategies:
+    - com.linkedin.kafka.cruisecontrol.executor.strategy.PrioritizeLargeReplicaMovementStrategy
+    - com.linkedin.kafka.cruisecontrol.executor.strategy.BaseReplicaMovementStrategy
+
+    # ANOMALY DETECTOR
+    anomaly.detection.interval.ms: "10000"
+    metric.anomaly.detection.interval.ms: 120000
+    self.healing.enabled: false
+
+    # WEBSERVER
+    webserver.http.port: 9090
+    webserver.http.address: 0.0.0.0
+    webserver.accesslog.enabled: true
+    webserver.request.maxBlockTimeMs: 10000
+
+  # Log4j configuration
+  log4j:
+    rootLogger.level: INFO
+    logger.cruisecontrol.level: info
+    logger.detector.level: info
+
+# Configure single performance-tuned cluster
+clusters:
+  high-perf-cluster: {}

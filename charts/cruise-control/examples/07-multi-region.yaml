@@ -1,10 +1,10 @@
 # Multi-Region Configuration Example
 # This example shows a setup for multi-region deployment:
+# - Multiple clusters across different regions
 # - Region-aware configuration
-# - Cross-region communication
+# - Cross-region settings
 # - Region-specific resources
-# - Disaster recovery settings
-# - Multi-cluster management
+# - Multi-cluster UI management
 
 image:
   repository: ghcr.io/devops-ia/kafka-cruise-control
@@ -12,63 +12,6 @@ image:
   pullPolicy: IfNotPresent
 
 replicaCount: 2
-
-env:
-  KAFKA_BOOTSTRAP_SERVERS: "kafka-0.us-east-1:9092,kafka-0.us-west-1:9092"
-  CRUISE_CONTROL_METRICS_TOPIC: "__CruiseControlMetrics"
-  REGION: "${REGION}"
-  CROSS_REGION_ENABLED: "true"
-  REPLICA_MOVEMENT_STRATEGIES: "com.linkedin.kafka.cruisecontrol.executor.strategy.PrioritizeLargeReplicaMovementStrategy,com.linkedin.kafka.cruisecontrol.executor.strategy.PreferredLeaderElectionStrategy"
-  MIN_ISR_REPLICAS: "2"
-  REPLICATION_FACTOR: "3"
-
-configMap:
-  enabled: true
-  data:
-    capacity.json: |
-      {
-        "brokerCapacities": [
-          {
-            "brokerId": "-1",
-            "capacity": {
-              "DISK": "10000000",
-              "CPU": "100",
-              "NW_IN": "1000000",
-              "NW_OUT": "1000000"
-            }
-          }
-        ]
-      }
-    multi-region-config.properties: |
-      num.replica.movers=8
-      concurrent.partition.movements.per.broker=5
-      concurrent.leader.movements=1000
-      max.num.cluster.movements=1000
-      replica.movement.strategies=com.linkedin.kafka.cruisecontrol.executor.strategy.PrioritizeLargeReplicaMovementStrategy,com.linkedin.kafka.cruisecontrol.executor.strategy.PreferredLeaderElectionStrategy
-      goals=com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal,com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal,com.linkedin.kafka.cruisecontrol.analyzer.goals.DiskCapacityGoal
-      default.goals=com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal,com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal
-      anomaly.detection.goals=com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal
-
-volumeMounts:
-  - name: config-volume
-    mountPath: /config
-    readOnly: true
-
-volumes:
-  - name: config-volume
-    configMap:
-      name: cruise-control-multi-region-config
-
-affinity:
-  nodeAffinity:
-    requiredDuringSchedulingIgnoredDuringExecution:
-      nodeSelectorTerms:
-        - matchExpressions:
-            - key: topology.kubernetes.io/region
-              operator: In
-              values:
-                - us-east-1
-                - us-west-1
 
 resources:
   limits:
@@ -80,9 +23,32 @@ resources:
 
 service:
   type: ClusterIP
-  port: 9090
+  port: 80
+  targetPort: 9090
   annotations:
     service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: topology.kubernetes.io/region
+              operator: In
+              values:
+                - us-east-1
+                - us-west-1
+                - eu-west-1
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 180
+  periodSeconds: 10
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 10
 
 networkPolicy:
   enabled: true
@@ -99,3 +65,126 @@ networkPolicy:
         - namespaceSelector:
             matchLabels:
               name: kafka
+
+# Configure default settings for all regions/clusters
+clustersDefaults:
+  # Cluster configuration
+  cluster:
+    min.insync.replicas: 2
+    default.replication.factor: 3
+
+  # Capacity configuration
+  capacity:
+    type: capacity
+    config: |
+      {
+        "brokerCapacities": [
+          {
+            "brokerId": "-1",
+            "capacity": {
+              "DISK": "10000000",
+              "CPU": "100",
+              "NW_IN": "1000000",
+              "NW_OUT": "1000000"
+            },
+            "doc": "Multi-region capacity configuration."
+          }
+        ]
+      }
+
+  # Cruise Control configuration
+  config:
+    # METADATA CLIENT
+    client.id: "cruise-control-multi-region"
+
+    # LOAD MONITOR
+    broker.metric.sample.store.topic: "__KafkaCruiseControlModelTrainingSamples"
+    partition.metric.sample.store.topic: "__KafkaCruiseControlPartitionMetricSamples"
+    metric.sampler.class: com.linkedin.kafka.cruisecontrol.monitor.sampling.prometheus.PrometheusMetricSampler
+    sample.store.topic.replication.factor: 3
+
+    # EXECUTOR - Multi-region optimizations
+    max.num.cluster.partition.movements: 1000
+    num.concurrent.partition.movements.per.broker: 5
+    num.concurrent.leader.movements: 1000
+    execution.progress.check.interval.ms: 10000
+
+    replica.movement.strategies:
+    - com.linkedin.kafka.cruisecontrol.executor.strategy.PrioritizeLargeReplicaMovementStrategy
+    - com.linkedin.kafka.cruisecontrol.executor.strategy.BaseReplicaMovementStrategy
+
+    # ANALYZER - Region-aware goals
+    default.goals:
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.ReplicaCapacityGoal
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.DiskCapacityGoal
+
+    hard.goals:
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal
+
+    anomaly.detection.goals:
+    - com.linkedin.kafka.cruisecontrol.analyzer.goals.RackAwareGoal
+
+    # ANOMALY DETECTOR
+    anomaly.detection.interval.ms: "10000"
+    self.healing.enabled: false
+
+    # WEBSERVER
+    webserver.http.port: 9090
+    webserver.http.address: 0.0.0.0
+    webserver.accesslog.enabled: true
+
+  # Log4j configuration
+  log4j:
+    rootLogger.level: INFO
+    logger.cruisecontrol.level: info
+
+# Configure multiple clusters across regions
+clusters:
+  # US East region cluster
+  us-east-1:
+    group: "us-east"
+    config:
+      bootstrap.servers: "kafka-0.us-east-1:9092,kafka-1.us-east-1:9092,kafka-2.us-east-1:9092"
+      prometheus.server.endpoint: thanos-query-us-east-1.prometheus:9090
+
+  # US West region cluster
+  us-west-1:
+    group: "us-west"
+    config:
+      bootstrap.servers: "kafka-0.us-west-1:9092,kafka-1.us-west-1:9092,kafka-2.us-west-1:9092"
+      prometheus.server.endpoint: thanos-query-us-west-1.prometheus:9090
+
+  # Europe West region cluster
+  eu-west-1:
+    group: "eu-west"
+    config:
+      bootstrap.servers: "kafka-0.eu-west-1:9092,kafka-1.eu-west-1:9092,kafka-2.eu-west-1:9092"
+      prometheus.server.endpoint: thanos-query-eu-west-1.prometheus:9090
+
+# UI configuration for multi-region/multi-cluster management
+ui:
+  enabled: true
+  replicaCount: 2
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: cruise-control-global.example.com
+        paths:
+          - path: /
+            pathType: Prefix

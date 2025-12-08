@@ -1,0 +1,121 @@
+# Multi-Cluster Simple Configuration Example
+# This example shows how to manage multiple Kafka clusters with:
+# - Shared default configuration (clustersDefaults)
+# - Two clusters with minimal overrides
+# - UI enabled for multi-cluster access
+# - Simple and clean configuration
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/devops-ia/kafka-cruise-control
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 9090
+
+# Configure default settings shared by all clusters
+clustersDefaults:
+  # Cluster configuration
+  cluster:
+    min.insync.replicas: 2
+
+  # Capacity configuration
+  capacity:
+    type: capacity
+    config: |
+      {
+        "brokerCapacities":[
+          {
+            "brokerId": "-1",
+            "capacity": {
+              "DISK": "100000",
+              "CPU": "100",
+              "NW_IN": "125000",
+              "NW_OUT": "125000"
+            },
+            "doc": "Default capacity configuration."
+          }
+        ]
+      }
+
+  # Cruise Control configuration
+  config:
+    # METADATA CLIENT
+    client.id: "cruise-control"
+
+    # LOAD MONITOR
+    broker.metric.sample.store.topic: "__KafkaCruiseControlModelTrainingSamples"
+    partition.metric.sample.store.topic: "__KafkaCruiseControlPartitionMetricSamples"
+    metric.sampler.class: com.linkedin.kafka.cruisecontrol.monitor.sampling.prometheus.PrometheusMetricSampler
+    sample.store.topic.replication.factor: 2
+
+    # ANOMALY DETECTOR
+    anomaly.detection.interval.ms: "10000"
+    self.healing.enabled: false
+
+    # WEBSERVER
+    webserver.http.port: 9090
+    webserver.http.address: 0.0.0.0
+    webserver.accesslog.enabled: true
+
+  # Log4j configuration
+  log4j:
+    rootLogger.level: INFO
+    logger.cruisecontrol.level: info
+
+# Configure multiple clusters
+# Each cluster only needs to override what's different from defaults
+clusters:
+  # Cluster A - Only override bootstrap.servers and prometheus endpoint
+  cluster-a:
+    group: "team-a"
+    config:
+      bootstrap.servers: "kafka-cluster-a:9092"
+      prometheus.server.endpoint: thanos-query-a.prometheus:9090
+
+  # Cluster B - Only override bootstrap.servers and prometheus endpoint
+  cluster-b:
+    group: "team-b"
+    config:
+      bootstrap.servers: "kafka-cluster-b:9092"
+      prometheus.server.endpoint: thanos-query-b.prometheus:9090
+
+# UI configuration for multi-cluster setup
+# This creates a reverse proxy that routes to each cluster
+ui:
+  enabled: true
+  replicaCount: 1
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: cruise-control.example.com
+        paths:
+          - path: /
+            pathType: Prefix

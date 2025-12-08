@@ -1,0 +1,213 @@
+{{- range $clusterName, $clusterConfig := .Values.clusters }}
+{{- $mergedConfig := include "cruise-control.cluster.config" (dict "clusterName" $clusterName "clusterConfig" $clusterConfig "root" $) | fromJson }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cruise-control.cluster.fullname" (dict "clusterName" $clusterName "root" $) }}
+  labels:
+    {{- include "cruise-control.cluster.labels" (dict "clusterName" $clusterName "root" $) | nindent 4 }}
+    {{- with $.Values.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with $.Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not $.Values.autoscaling.enabled }}
+  replicas: {{ $.Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "cruise-control.cluster.selectorLabels" (dict "clusterName" $clusterName "root" $) | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/server/configmap.yaml") $ | sha256sum }}
+        {{- with $.Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "cruise-control.cluster.labels" (dict "clusterName" $clusterName "root" $) | nindent 8 }}
+        {{- with $.Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "cruise-control.serviceAccountName" $ }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      {{- with $.Values.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.hostAliases }}
+      hostAliases:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $.Chart.Name }}
+          securityContext:
+            {{- toYaml $.Values.securityContext | nindent 12 }}
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag | default $.Chart.AppVersion }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          {{- with $.Values.command }}
+          command: {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $.Values.args }}
+          args: {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ $.Values.service.targetPort | default $.Values.service.port }}
+              protocol: TCP
+          {{- with $.Values.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if $.Values.livenessProbe.enabled }}
+          livenessProbe:
+            {{- if $.Values.livenessProbeCustom }}
+            {{- toYaml $.Values.livenessProbeCustom | nindent 12 }}
+            {{- else }}
+            httpGet:
+              path: {{ $.Values.service.healthPath | default "/" | quote }}
+              port: {{ $.Values.service.targetPort | default $.Values.service.port }}
+            failureThreshold: {{ $.Values.livenessProbe.failureThreshold }}
+            initialDelaySeconds: {{ $.Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.livenessProbe.periodSeconds }}
+            successThreshold: {{ $.Values.livenessProbe.successThreshold }}
+            timeoutSeconds: {{ $.Values.livenessProbe.timeoutSeconds }}
+            {{- end }}
+          {{- end }}
+          {{- if $.Values.readinessProbe.enabled }}
+          readinessProbe:
+            {{- if $.Values.readinessProbeCustom }}
+            {{- toYaml $.Values.readinessProbeCustom | nindent 12 }}
+            {{- else }}
+            httpGet:
+              path: {{ $.Values.service.healthPath | default "/" | quote }}
+              port: {{ $.Values.service.targetPort | default $.Values.service.port }}
+            failureThreshold: {{ $.Values.readinessProbe.failureThreshold }}
+            initialDelaySeconds: {{ $.Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.readinessProbe.periodSeconds }}
+            successThreshold: {{ $.Values.readinessProbe.successThreshold }}
+            timeoutSeconds: {{ $.Values.readinessProbe.timeoutSeconds }}
+            {{- end }}
+          {{- end }}
+          {{- if $.Values.startupProbe.enabled }}
+          startupProbe:
+            {{- if $.Values.startupProbeCustom }}
+            {{- toYaml $.Values.startupProbeCustom | nindent 12 }}
+            {{- else }}
+            httpGet:
+              path: {{ $.Values.service.healthPath | default "/" | quote }}
+              port: {{ $.Values.service.targetPort | default $.Values.service.port }}
+            failureThreshold: {{ $.Values.startupProbe.failureThreshold }}
+            initialDelaySeconds: {{ $.Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ $.Values.startupProbe.periodSeconds }}
+            successThreshold: {{ $.Values.startupProbe.successThreshold }}
+            timeoutSeconds: {{ $.Values.startupProbe.timeoutSeconds }}
+            {{- end }}
+          {{- end }}
+          envFrom:
+            {{- if $.Values.envFromFiles }}
+            {{- tpl (toYaml $.Values.envFromFiles) $ | nindent 12 }}
+            {{- end }}
+          env:
+            {{- $envList := dict -}}
+            {{- if $.Values.envFromSecrets }}
+            {{- range $key, $value := $.Values.envFromSecrets }}
+            {{- if not (hasKey $envList $key) }}
+            - name: {{ $key | upper }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $value.name }}
+                  key: {{ $value.key | default $key }}
+            {{- $_ := set $envList $key true }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            # Variables from configmap have precedence
+            {{- if $.Values.envFromConfigMap }}
+            {{- range $key, $value := $.Values.envFromConfigMap }}
+            {{- if not (hasKey $envList $key) }}
+            - name: {{ $key | upper }}
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ $value.name }}
+                  key: {{ $value.key | default $key }}
+            {{- $_ := set $envList $key true }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            # Add variables in plain text if they were not already added from secrets
+            {{- if $.Values.env }}
+            {{- range $key, $value := $.Values.env }}
+            {{- if not (hasKey $envList $key) }}
+            - name: {{ $key | upper }}
+              value: {{ $value | quote }}
+            {{- $_ := set $envList $key true }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: config-volume
+              mountPath: /cruise-control/config/cruisecontrol.properties
+              subPath: cruisecontrol.properties
+            - name: config-volume
+              mountPath: /cruise-control/config/{{ $mergedConfig.capacity.type }}.json
+              subPath: {{ $mergedConfig.capacity.type }}.json
+            - name: config-volume
+              mountPath: /cruise-control/config/clusterConfigs.json
+              subPath: clusterConfigs.json
+            {{- if $mergedConfig.jaas.enabled }}
+            - name: config-volume
+              mountPath: /cruise-control/config/cruise_control_jaas.conf
+              subPath: cruise_control_jaas.conf
+            {{- end }}
+            - name: config-volume
+              mountPath: /cruise-control/config/log4j.properties
+              subPath: log4j.properties
+            {{- with $.Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      terminationGracePeriodSeconds: {{ $.Values.terminationGracePeriodSeconds }}
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ include "cruise-control.cluster.fullname" (dict "clusterName" $clusterName "root" $) }}-config
+        {{- with $.Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.topologySpreadConstraints }}
+      {{- $_ := include "cruise-control.patchTopologySpreadConstraints" $ }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.dnsConfig }}
+      dnsConfig:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.dnsPolicy }}
+      dnsPolicy: {{ . }}
+      {{- end }}
+{{- end }}

@@ -21,3 +21,8 @@
 .idea/
 *.tmproj
 .vscode/
+docs/
+examples/
+*.gotmpl
+artifacthub-repo.yml
+ci/
