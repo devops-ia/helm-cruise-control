@@ -1,5 +1,6 @@
 apiVersion: v2
 name: cruise-control
+icon: https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Apache_Kafka_logo.svg/330px-Apache_Kafka_logo.svg.png
 description: A Helm chart to deploy Cruise Control for Apache Kafka
 type: application
 maintainers:
