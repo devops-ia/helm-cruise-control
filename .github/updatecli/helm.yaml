@@ -4,7 +4,9 @@ sources:
     spec:
       image: devopsiaci/cruise-control
       architecture: linux/amd64
-      tagfilter: "jdk17-cc*"
+      versionfilter:
+        kind: regex
+        pattern: "^jdk17-cc2.*"
   cruise-control-ui:
     kind: dockerimage
     spec:
