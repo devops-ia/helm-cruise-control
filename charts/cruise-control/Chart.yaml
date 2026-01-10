@@ -9,8 +9,8 @@ maintainers:
     url: https://ialejandro.rocks
 sources:
   - https://github.com/linkedin/cruise-control
-version: 2.0.0
-appVersion: jdk17-cc3.0.3-iam2.3.5
+version: 2.0.1
+appVersion: jdk17-cc2.5.146-iam2.3.5
 home: https://github.com/devops-ia/helm-cruise-control
 keywords:
   - cruise-control
