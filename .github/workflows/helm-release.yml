@@ -1,0 +1,20 @@
+name: Release Helm Chart (single)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "charts/cruise-control/**"
+
+jobs:
+  release:
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    uses: devops-ia/.github/.github/workflows/helm-release.yml@main
+    with:
+      chart_name: cruise-control
+      charts_dir: charts
