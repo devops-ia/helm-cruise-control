@@ -1188,6 +1188,31 @@ ui:
     #    hosts:
     #      - chart-example.local
 
+  # -- Gateway API configuration (Gateway + HTTPRoute resources)
+  # </br> Ref: https://gateway-api.sigs.k8s.io/
+  # </br> Requires Gateway API CRDs installed in the cluster.
+  # </br> TLS is configured at the Gateway listener level, not the HTTPRoute.
+  gateway:
+    enabled: false
+    create: false
+    className: ""
+    listeners:
+      - name: http
+        protocol: HTTP
+        port: 80
+    parentRefs:
+      - name: ""
+        namespace: ""
+    hostnames: []
+    rules:
+      - matches:
+          - path:
+              type: PathPrefix
+              value: /
+    filters: []
+    labels: {}
+    annotations: {}
+
   # -- Resources limits and requested
   # </br> Ref: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
   resources: {}
