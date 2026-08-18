@@ -9,7 +9,8 @@ updates:
       - enhancement
       - dependency-management
     assignees:
-      - devops-ia/devops-ia
+      - ialejandro
+      - amartingarcia
     groups:
       github-actions:
         patterns:
