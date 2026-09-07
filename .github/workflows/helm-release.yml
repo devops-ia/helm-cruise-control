@@ -2,6 +2,11 @@ name: Release Helm Chart (single)
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Chart version tag to release (e.g. v1.2.3)"
+        required: false
+        type: string
   push:
     branches:
       - main
@@ -15,6 +20,8 @@ jobs:
       packages: write
       id-token: write
     uses: devops-ia/.github/.github/workflows/helm-release.yml@main
+    secrets: inherit
     with:
       chart_name: cruise-control
       charts_dir: charts
+      tag: ${{ inputs.tag || '' }}

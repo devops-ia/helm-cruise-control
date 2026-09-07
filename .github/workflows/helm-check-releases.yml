@@ -66,7 +66,7 @@ jobs:
           signoff: false
           branch: chore/upgrade-cruise-control-${{ steps.latest_release.outputs.latest_release }}
           delete-branch: true
-          title: '[cruise-control] new release: ${{ steps.latest_release.outputs.latest_release }}'
+          title: 'fix: [cruise-control] new release: ${{ steps.latest_release.outputs.latest_release }}'
           body: |
             Cruise Control version:
             - :information_source: Current: `${{ steps.current_release.outputs.current_release }}`
