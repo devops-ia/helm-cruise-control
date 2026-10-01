@@ -168,9 +168,16 @@ spec:
               mountPath: /cruise-control/config/clusterConfigs.json
               subPath: clusterConfigs.json
             {{- if $mergedConfig.jaas.enabled }}
+            {{- if $mergedConfig.jaas.existingSecret.name }}
+            - name: jaas-secret
+              mountPath: /cruise-control/config/cruise_control_jaas.conf
+              subPath: {{ $mergedConfig.jaas.existingSecret.key }}
+              readOnly: true
+            {{- else }}
             - name: config-volume
               mountPath: /cruise-control/config/cruise_control_jaas.conf
               subPath: cruise_control_jaas.conf
+            {{- end }}
             {{- end }}
             - name: config-volume
               mountPath: /cruise-control/config/log4j.properties
@@ -183,6 +190,11 @@ spec:
         - name: config-volume
           configMap:
             name: {{ include "cruise-control.cluster.fullname" (dict "clusterName" $clusterName "root" $) }}-config
+        {{- if and $mergedConfig.jaas.enabled $mergedConfig.jaas.existingSecret.name }}
+        - name: jaas-secret
+          secret:
+            secretName: {{ $mergedConfig.jaas.existingSecret.name }}
+        {{- end }}
         {{- with $.Values.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

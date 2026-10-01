@@ -485,6 +485,13 @@ clustersDefaults:
         serviceName="kafka"
         principal="kafka_client@<REALM>";
       };
+    # -- Mount the JAAS file from an existing Secret instead of rendering
+    # `config` into the ConfigMap. Usually set per cluster.
+    existingSecret:
+      # -- Secret name. Empty renders `config` into the ConfigMap
+      name: ""
+      # -- Secret key holding the JAAS file
+      key: "cruise_control_jaas.conf"
 
   # -- Cruise Control cluster config
   # Sample: https://github.com/linkedin/cruise-control/blob/main/config/clusterConfigs.json
@@ -791,6 +798,11 @@ clusters:
   #       username="prod-user"
   #       password="prod-password";
   #     };
+  # # Or keep credentials out of the ConfigMap with an existing Secret
+  # jaas:
+  #   enabled: true
+  #   existingSecret:
+  #     name: "cluster-prod-jaas"
 
   # # Production cluster configuration with higher replication
   # cluster:

@@ -51,7 +51,7 @@ data:
     {{- $mergedConfig.capacity.config | nindent 4 }}
   {{- end }}
 
-  {{- if $mergedConfig.jaas.enabled }}
+  {{- if and $mergedConfig.jaas.enabled (not $mergedConfig.jaas.existingSecret.name) }}
   cruise_control_jaas.conf: |
     {{- $mergedConfig.jaas.config | nindent 4 }}
   {{- end }}
