@@ -25,7 +25,10 @@ spec:
   {{- end }}
   rules:
     {{- range $root.Values.ui.gateway.rules }}
-    - {{- if .matches }}
+    - {{- with .name }}
+      name: {{ . }}
+      {{- end }}
+      {{- if .matches }}
       matches:
         {{- toYaml .matches | nindent 8 }}
       {{- end }}
