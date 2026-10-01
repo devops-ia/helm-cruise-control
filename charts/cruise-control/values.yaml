@@ -1204,6 +1204,7 @@ ui:
       - name: ""
         namespace: ""
     hostnames: []
+    # Each rule may set an optional `name` (e.g. for policy `sectionName`)
     rules:
       - matches:
           - path:
