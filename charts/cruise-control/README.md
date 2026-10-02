@@ -95,6 +95,7 @@ helm show values cruise-control/cruise-control
 | lifecycle | object | `{}` | Configure lifecycle hooks </br> Ref: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/ </br> Ref: https://learnk8s.io/graceful-shutdown |
 | livenessProbe | object | `{"enabled":false,"failureThreshold":3,"initialDelaySeconds":180,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":5}` | Configure liveness checker </br> Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-startup-probes |
 | livenessProbeCustom | object | `{}` | Custom livenessProbe |
+| logsVolume | object | `{}` | Volume mounted at /cruise-control/logs (any Kubernetes volume source) Empty means an emptyDir, which is writable by any uid. With a block volume (e.g. EBS gp3) set `podSecurityContext.fsGroup: 65534` so the image user can write to it. Prefer `ephemeral` over a fixed PVC: each cluster and replica gets its own ReadWriteOnce volume. </br> Ref: https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/#generic-ephemeral-volumes |
 | nameOverride | string | `""` | String to partially override cruise-control.fullname template (will maintain the release name) |
 | networkPolicy | object | `{"egress":[],"enabled":false,"ingress":[],"policyTypes":[]}` | NetworkPolicy configuration </br> Ref: https://kubernetes.io/docs/concepts/services-networking/network-policies/ |
 | networkPolicy.enabled | bool | `false` | Enable or disable NetworkPolicy |

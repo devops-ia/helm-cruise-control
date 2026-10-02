@@ -390,6 +390,23 @@ autoscaling:
   targetCPUUtilizationPercentage: 80
   # targetMemoryUtilizationPercentage: 80
 
+# -- Volume mounted at /cruise-control/logs (any Kubernetes volume source)
+# Empty means an emptyDir, which is writable by any uid.
+# With a block volume (e.g. EBS gp3) set `podSecurityContext.fsGroup: 65534` so the image user can write to it.
+# Prefer `ephemeral` over a fixed PVC: each cluster and replica gets its own ReadWriteOnce volume.
+# </br> Ref: https://kubernetes.io/docs/concepts/storage/ephemeral-volumes/#generic-ephemeral-volumes
+logsVolume: {}
+# ephemeral:
+#   volumeClaimTemplate:
+#     spec:
+#       accessModes: [ReadWriteOnce]
+#       storageClassName: gp3
+#       resources:
+#         requests:
+#           storage: 10Gi
+# persistentVolumeClaim:
+#   claimName: cruise-control-logs
+
 # -- Additional volumes on the output Deployment definition
 # </br> Ref: https://kubernetes.io/docs/concepts/storage/volumes/
 # </br> Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/

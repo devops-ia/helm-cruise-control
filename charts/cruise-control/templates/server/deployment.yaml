@@ -182,6 +182,10 @@ spec:
             - name: config-volume
               mountPath: /cruise-control/config/log4j.properties
               subPath: log4j.properties
+            - name: logs
+              mountPath: /cruise-control/logs
+            - name: tmp
+              mountPath: /tmp
             {{- with $.Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -195,6 +199,10 @@ spec:
           secret:
             secretName: {{ $mergedConfig.jaas.existingSecret.name }}
         {{- end }}
+        - name: logs
+          {{- toYaml (default (dict "emptyDir" (dict)) $.Values.logsVolume) | nindent 10 }}
+        - name: tmp
+          emptyDir: {}
         {{- with $.Values.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

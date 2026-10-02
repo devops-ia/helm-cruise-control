@@ -161,6 +161,8 @@ spec:
             - name: ui-config
               mountPath: /usr/share/nginx/html/static/config.csv
               subPath: config.csv
+            - name: tmp
+              mountPath: /tmp
             {{- with .Values.ui.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -171,6 +173,8 @@ spec:
         - name: ui-config
           configMap:
             name: {{ include "cruise-control.fullname" . }}-ui-config
+        - name: tmp
+          emptyDir: {}
         {{- with .Values.ui.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

@@ -459,15 +459,15 @@ Both components are fully compliant with restricted Pod Security Standards:
 ```yaml
 securityContext:
   runAsNonRoot: true
-  runAsUser: 99
-  runAsGroup: 99
+  runAsUser: 65534
+  runAsGroup: 65534
   allowPrivilegeEscalation: false
   capabilities:
     drop: [ALL]
   readOnlyRootFilesystem: false
 
 podSecurityContext:
-  fsGroup: 99
+  fsGroup: 65534
   runAsNonRoot: true
   seccompProfile:
     type: RuntimeDefault
