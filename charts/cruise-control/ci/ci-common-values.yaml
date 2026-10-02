@@ -1,5 +1,17 @@
 replicaCount: 1
 
+testConnection:
+  enabled: true
+
+# Readiness only passes once Cruise Control has connected to Kafka
+service:
+  healthPath: /kafkacruisecontrol/state
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  failureThreshold: 30
+
 env:
   JAVA_OPTS: "-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom"
   LOG_LEVEL: "INFO"
@@ -56,7 +68,7 @@ clusters:
       min.insync.replicas: 1
       default.replication.factor: 1
     config:
-      bootstrap.servers: "my-cluster-kafka-bootstrap.kafka-prod:9092"
+      bootstrap.servers: "my-cluster-kafka-bootstrap.kafka:9092"
       client.id: "cruise-control"
       kafka.broker.failure.detection.enable: true
       zookeeper.connect: false

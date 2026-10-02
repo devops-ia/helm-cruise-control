@@ -1,17 +1,21 @@
-{{ if .Values.testConnection.enabled }}
+{{- if .Values.testConnection.enabled }}
+{{- range $clusterName, $clusterConfig := .Values.clusters }}
+{{- $fullname := include "cruise-control.cluster.fullname" (dict "clusterName" $clusterName "root" $) }}
+---
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "{{ include "cruise-control.fullname" . }}-test-connection"
+  name: "{{ $fullname }}-test-connection"
   labels:
-    {{- include "cruise-control.labels" . | nindent 4 }}
+    {{- include "cruise-control.labels" $ | nindent 4 }}
   annotations:
     "helm.sh/hook": test
 spec:
   containers:
     - name: wget
-      image: {{ .Values.testConnection.repository }}:{{ .Values.testConnection.tag | default "latest" }}
+      image: {{ $.Values.testConnection.repository }}:{{ $.Values.testConnection.tag | default "latest" }}
       command: ['wget']
-      args: ['{{ include "cruise-control.fullname" . }}:{{ .Values.service.port }}']
+      args: ['-qO-', 'http://{{ $fullname }}:{{ $.Values.service.port }}/kafkacruisecontrol/kafka_cluster_state']
   restartPolicy: Never
-{{ end }}
+{{- end }}
+{{- end }}
