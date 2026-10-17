@@ -15,14 +15,15 @@ RELEASE INFORMATION:
 The following Kafka clusters have been configured:
 {{- range $clusterName, $clusterConfig := .Values.clusters }}
 {{- $group := $clusterConfig.group | default "cluster" }}
+{{- $merged := include "cruise-control.cluster.config" (dict "clusterName" $clusterName "clusterConfig" $clusterConfig "root" $) | fromJson }}
+{{- $bootstrap := index $merged.config "bootstrap.servers" | default "" | toString }}
 
   - Name:  {{ $clusterName }}
     Group: {{ $group }}
-{{- if $clusterConfig.zookeeper }}
-    Zookeeper: {{ $clusterConfig.zookeeper.connect }}
-{{- end }}
-{{- if $clusterConfig.kafka }}
-    Bootstrap Servers: {{ $clusterConfig.kafka.bootstrapServers }}
+    Bootstrap Servers: {{ $bootstrap }}
+{{- if or (not $bootstrap) (hasPrefix "localhost" $bootstrap) (hasPrefix "127.0.0.1" $bootstrap) }}
+    WARNING: there is no Kafka inside the Cruise Control pod, so this cluster will crash-loop.
+             Set clusters.{{ $clusterName }}.config.bootstrap.servers (or clustersDefaults.config.bootstrap.servers).
 {{- end }}
 {{- end }}
 

@@ -547,6 +547,8 @@ clustersDefaults:
   # Ref: https://github.com/cruise-control-for-kafka/cruise-control/wiki/Configurations
   config:
     # METADATA CLIENT
+    # Placeholder: there is no Kafka in the pod, so set this to your brokers (here or per cluster
+    # in clusters.<name>.config) or the server crash-loops.
     bootstrap.servers: "localhost:9092"
     client.id: "cruise-control"
     connections.max.idle.ms: 540000
@@ -807,6 +809,8 @@ clustersDefaults:
 # NOTE: Values defined here will override the corresponding values from 'clustersDefaults'
 # Each cluster can have a 'group' field. If not specified, defaults to 'cluster'
 clusters:
+  # Inherits clustersDefaults, whose bootstrap.servers is a localhost placeholder: set
+  # clusters.cluster-dev.config.bootstrap.servers or the pod crash-loops.
   cluster-dev: {}
   # Optional group classification. Defaults to 'cluster' if not specified
   # group: "develop"
