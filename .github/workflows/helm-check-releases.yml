@@ -72,6 +72,6 @@ jobs:
             - :information_source: Current: `${{ steps.current_release.outputs.current_release }}`
             - :up: Upgrade: `${{ steps.latest_release.outputs.latest_release }}`
 
-            Changelog: https://github.com/linkedin/cruise-control/releases/tag/${{ steps.clean_tag_release.outputs.cc_clean_version_tag }}
+            Changelog: https://github.com/cruise-control-for-kafka/cruise-control/releases/tag/${{ steps.clean_tag_release.outputs.cc_clean_version_tag }}
           labels: |
             auto-pr-bump-version

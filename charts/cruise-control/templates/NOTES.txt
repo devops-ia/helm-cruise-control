@@ -102,10 +102,10 @@ Uninstall the release:
 ###
 
 Cruise Control Documentation:
-  https://github.com/linkedin/cruise-control/wiki
+  https://github.com/cruise-control-for-kafka/cruise-control/wiki
 
 Cruise Control REST API:
-  https://github.com/linkedin/cruise-control/wiki/REST-APIs
+  https://github.com/cruise-control-for-kafka/cruise-control/wiki/REST-APIs
 
 Chart Repository:
   https://github.com/devops-ia/helm-cruise-control

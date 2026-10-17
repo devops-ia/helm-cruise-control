@@ -6,7 +6,7 @@ sources:
       architecture: linux/amd64
       versionfilter:
         kind: regex
-        pattern: "^jdk17-cc2.*"
+        pattern: '^jdk17-cc3\.([1-9]|[1-9][0-9]+)\..*'
   cruise-control-ui:
     kind: dockerimage
     spec:

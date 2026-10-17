@@ -180,8 +180,8 @@ spec:
             {{- end }}
             {{- end }}
             - name: config-volume
-              mountPath: /cruise-control/config/log4j.properties
-              subPath: log4j.properties
+              mountPath: /cruise-control/config/log4j2.properties
+              subPath: log4j2.properties
             - name: logs
               mountPath: /cruise-control/logs
             - name: tmp

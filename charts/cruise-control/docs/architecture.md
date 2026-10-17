@@ -20,16 +20,17 @@ The project builds **two separate Docker images** with distinct responsibilities
 Each image has a single, well-defined purpose:
 
 - **cruise-control image**: Runs the Cruise Control server
-  - Based on Amazon Corretto (JDK 17)
+  - Based on Amazon Corretto, JDK 17 by default and JDK 21 as a supported tag (`jdk21-cc...`); JDK 25 is not published
+  - Built from [devops-ia/kafka-cruise-control](https://github.com/devops-ia/kafka-cruise-control) for Cruise Control 3.x
   - Contains only the JAR files and configuration
   - Exposes port 9090
-  - Runs as non-root user `nobody` (UID 99)
+  - Runs as non-root user `nobody` (UID 65534)
   - Size: ~800MB (JDK + application)
 
 - **cruise-control-ui image**: Serves the static web UI with reverse proxy
-  - Based on nginx:1.25-alpine
+  - Based on nginx:1.28-alpine
   - Contains HTML/CSS/JS static files
-  - Exposes port 80
+  - Listens on port 8080 (the chart nginx.conf), exposed by the Service on port 80
   - Runs as non-root user `nginx` (UID 101)
   - Size: ~25MB (nginx + static files)
 
@@ -367,7 +368,7 @@ Clusters are defined separately from components:
 │  │  cruise-control-ui image (nginx:alpine)    │   │
 │  │  - Serves static UI files (~25MB)          │   │
 │  │  - Routes API requests to server pods      │   │
-│  │  - Port 80 (non-root user UID 101)         │   │
+│  │  - Port 8080 (non-root user UID 101)       │   │
 │  │  - Grouped cluster list in config.csv      │   │
 │  └────────────────────────────────────────────┘   │
 └──────────┬────────────────────┬────────────────────┘
@@ -389,11 +390,11 @@ Clusters are defined separately from components:
 
 | Aspect | cruise-control | cruise-control-ui |
 |--------|----------------|-------------------|
-| Base image | amazoncorretto:17 | nginx:1.25-alpine |
+| Base image | amazoncorretto:17 (or 21) | nginx:1.28-alpine |
 | Size | ~800MB | ~25MB |
 | Purpose | API server | Web UI + reverse proxy |
-| Port | 9090 | 80 |
-| User | nobody (99) | nginx (101) |
+| Port | 9090 | 8080 (Service port 80) |
+| User | nobody (65534) | nginx (101) |
 | CPU request | 500m | 50m |
 | Memory request | 1Gi | 64Mi |
 | Scaling pattern | Based on Kafka load | Based on user traffic |
@@ -536,8 +537,6 @@ spec:
       ports:
       - protocol: TCP
         port: 9092  # Kafka
-      - protocol: TCP
-        port: 2181  # Zookeeper
 ```
 
 ## Performance

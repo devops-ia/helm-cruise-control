@@ -7,7 +7,9 @@
 replicaCount: 1
 
 # -- Image registry
-# The image configuration for the base service
+# The image configuration for the base service. The default image is built from
+# https://github.com/devops-ia/kafka-cruise-control. Tags follow
+# jdk<N>-cc<version>-iam<version>; JDK 17 (default) and 21 are published, JDK 25 is not.
 image:
   # The repository of the image
   repository: ghcr.io/devops-ia/kafka-cruise-control
@@ -58,8 +60,10 @@ testConnection:
   tag: ""
 
 # -- Environment variables to configure application
+# The start script reads KAFKA_HEAP_OPTS (default -Xmx1G), KAFKA_JVM_PERFORMANCE_OPTS and
+# KAFKA_OPTS. JAVA_OPTS is not read.
 env: {}
-# MY_VARIABLE: value
+# KAFKA_HEAP_OPTS: "-Xms512m -Xmx1g"
 
 # -- Variables from configMap
 envFromConfigMap: {}
@@ -478,7 +482,7 @@ dnsPolicy: ClusterFirst
 #       # All other config values are inherited from clustersDefaults
 clustersDefaults:
   # -- Cruise Control JAAS configuration
-  # Sample: https://github.com/linkedin/cruise-control/blob/main/config/cruise_control_jaas.conf_template
+  # Sample: https://github.com/cruise-control-for-kafka/cruise-control/blob/main/config/cruise_control_jaas.conf_template
   jaas:
     enabled: false
     config: |
@@ -511,7 +515,7 @@ clustersDefaults:
       key: "cruise_control_jaas.conf"
 
   # -- Cruise Control cluster config
-  # Sample: https://github.com/linkedin/cruise-control/blob/main/config/clusterConfigs.json
+  # Sample: https://github.com/cruise-control-for-kafka/cruise-control/blob/main/config/clusterConfigs.json
   cluster:
     min.insync.replicas: 1
     an.example.cluster.config: false
@@ -519,9 +523,9 @@ clustersDefaults:
   # -- Cruise Control cluster resources
   capacity:
     # Allow:
-    #   capacity: where each broker has the same number of cores. Sample: https://github.com/linkedin/cruise-control/blob/main/config/capacity.json
-    #   capacityCores: where brokers may have varying number of cores. Sample: https://github.com/linkedin/cruise-control/blob/main/config/capacityCores.json
-    #   capacityJBOD: where brokers may have variying number of mounts. Sample: https://github.com/linkedin/cruise-control/blob/main/config/capacityJBOD.json
+    #   capacity: where each broker has the same number of cores. Sample: https://github.com/cruise-control-for-kafka/cruise-control/blob/main/config/capacity.json
+    #   capacityCores: where brokers may have varying number of cores. Sample: https://github.com/cruise-control-for-kafka/cruise-control/blob/main/config/capacityCores.json
+    #   capacityJBOD: where brokers may have variying number of mounts. Sample: https://github.com/cruise-control-for-kafka/cruise-control/blob/main/config/capacityJBOD.json
     type: capacity
     config: |
       {
@@ -540,7 +544,7 @@ clustersDefaults:
       }
 
   # -- Cruise Control configuration
-  # Ref: https://github.com/linkedin/cruise-control/wiki/Configurations
+  # Ref: https://github.com/cruise-control-for-kafka/cruise-control/wiki/Configurations
   config:
     # METADATA CLIENT
     bootstrap.servers: "localhost:9092"
@@ -559,6 +563,7 @@ clustersDefaults:
     broker.sample.store.topic.partition.count: 8
     metric.sampler.class: com.linkedin.kafka.cruisecontrol.monitor.sampling.prometheus.PrometheusMetricSampler
     metric.sampler.partition.assignor.class: "com.linkedin.kafka.cruisecontrol.monitor.sampling.DefaultMetricSamplerPartitionAssignor"
+    # Cruise Control 3.1 fails to start below 60000 (metadata refresh timeout 55000 must not exceed the sampling period)
     metric.sampling.interval.ms: 120000
     min.samples.per.broker.metrics.window: 1
     min.samples.per.partition.metrics.window: 1
@@ -655,7 +660,6 @@ clustersDefaults:
     num.concurrent.intra.broker.partition.movements: 2
     num.concurrent.leader.movements: 1000
     num.concurrent.partition.movements.per.broker: 5
-    zookeeper.security.enabled: false
     replica.movement.strategies:
     - com.linkedin.kafka.cruisecontrol.executor.strategy.PostponeUrpReplicaMovementStrategy
     - com.linkedin.kafka.cruisecontrol.executor.strategy.PrioritizeLargeReplicaMovementStrategy
