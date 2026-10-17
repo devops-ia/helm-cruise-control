@@ -8,7 +8,7 @@
 
 image:
   repository: ghcr.io/devops-ia/kafka-cruise-control
-  tag: "latest"
+  tag: "jdk17-cc3.1.0-iam2.3.9"
   pullPolicy: IfNotPresent
 
 replicaCount: 1

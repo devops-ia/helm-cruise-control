@@ -56,7 +56,7 @@ data:
     {{- $mergedConfig.jaas.config | nindent 4 }}
   {{- end }}
 
-  log4j.properties: |
+  log4j2.properties: |
     {{- range $key, $value := $mergedConfig.log4j }}
       {{ $key }}={{ $value }}
     {{- end }}

@@ -58,7 +58,7 @@ spec:
       {{- end }}
       containers:
         - name: cruise-control-ui
-          image: "{{ .Values.ui.image.repository }}:{{ .Values.ui.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.ui.image.repository }}:{{ .Values.ui.image.tag | default "0.4.0" }}"
           imagePullPolicy: {{ .Values.ui.image.pullPolicy }}
           {{- with .Values.ui.securityContext }}
           securityContext:

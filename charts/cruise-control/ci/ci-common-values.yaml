@@ -13,7 +13,7 @@ readinessProbe:
   failureThreshold: 30
 
 env:
-  JAVA_OPTS: "-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom"
+  KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
   LOG_LEVEL: "INFO"
 
 resources:
@@ -59,7 +59,6 @@ clusters:
       bootstrap.servers: "my-cluster-kafka-bootstrap.kafka:9092"
       client.id: "cruise-control-dev"
       kafka.broker.failure.detection.enable: true
-      zookeeper.connect: false
       self.healing.target.topic.replication.factor: 1
       sample.store.topic.replication.factor: 1
   cluster-prod:
@@ -71,6 +70,5 @@ clusters:
       bootstrap.servers: "my-cluster-kafka-bootstrap.kafka:9092"
       client.id: "cruise-control"
       kafka.broker.failure.detection.enable: true
-      zookeeper.connect: false
       self.healing.target.topic.replication.factor: 1
       sample.store.topic.replication.factor: 1

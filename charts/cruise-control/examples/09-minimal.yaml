@@ -4,12 +4,12 @@
 # - Minimal resource allocation
 # - Simple configuration
 # - No extra features enabled
+# - Kafka in KRaft mode: no ZooKeeper settings needed (Cruise Control 3.x)
 
 replicaCount: 1
 
 image:
   repository: ghcr.io/devops-ia/kafka-cruise-control
-  tag: "latest"
   pullPolicy: IfNotPresent
 
 resources:
