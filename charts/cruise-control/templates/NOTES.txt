@@ -74,10 +74,21 @@ Access the Cruise Control UI:
   Then visit: http://127.0.0.1:8080
 {{- end }}
 
+{{- if eq .Values.ui.flavor "legacy" }}
+
 The UI provides a reverse proxy to all configured clusters.
 Access each cluster through the following paths:
 {{- range $clusterName, $clusterConfig := .Values.clusters }}
   - /{{ $clusterName }}/kafkacruisecontrol/
+{{- end }}
+{{- else }}
+
+The UI proxies the requests to the clusters itself; pick the cluster in the page.
+Login mode: ui.auth.mode={{ .Values.ui.auth.mode }}
+{{- if eq .Values.ui.auth.mode "none" }}
+WARNING: ui.auth.mode=none has no login. Anyone who reaches the UI can run rebalances.
+         Set ui.auth.mode to local or oidc before exposing it.
+{{- end }}
 {{- end }}
 {{- end }}
 

@@ -26,6 +26,13 @@ resources:
 ui:
   replicaCount: 1
 
+  # The new UI answers /healthz as soon as it starts
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 2
+    periodSeconds: 5
+    failureThreshold: 12
+
   ingress:
     enabled: true
     className: nginx

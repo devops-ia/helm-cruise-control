@@ -1,4 +1,5 @@
 {{- if .Values.ui.enabled }}
+{{- include "cruise-control.ui.validate" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -25,11 +26,15 @@ spec:
       {{- include "cruise-control.ui.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- if or (eq .Values.ui.flavor "legacy") .Values.ui.podAnnotations }}
       annotations:
+        {{- if eq .Values.ui.flavor "legacy" }}
         checksum/config: {{ include (print $.Template.BasePath "/ui/configmap.yaml") . | sha256sum }}
+        {{- end }}
         {{- with .Values.ui.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+      {{- end }}
       labels:
         {{- include "cruise-control.ui.labels" . | nindent 8 }}
         {{- with .Values.ui.podLabels }}
@@ -41,6 +46,10 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "cruise-control.ui.serviceAccountName" . }}
+      {{- if eq .Values.ui.flavor "new" }}
+      # The UI rejects unknown CCUI_* variables and Kubernetes injects <SERVICE>_SERVICE_HOST for every Service
+      enableServiceLinks: false
+      {{- end }}
       {{- with .Values.ui.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -58,8 +67,8 @@ spec:
       {{- end }}
       containers:
         - name: cruise-control-ui
-          image: "{{ .Values.ui.image.repository }}:{{ .Values.ui.image.tag | default "0.4.0" }}"
-          imagePullPolicy: {{ .Values.ui.image.pullPolicy }}
+          image: "{{ include "cruise-control.ui.image" . }}"
+          imagePullPolicy: {{ ternary .Values.ui.legacy.image.pullPolicy .Values.ui.image.pullPolicy (eq .Values.ui.flavor "legacy") }}
           {{- with .Values.ui.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
@@ -72,15 +81,17 @@ spec:
           args:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.ui.env }}
+          {{- $generated := include "cruise-control.ui.generatedEnv" . | fromJson }}
+          {{- if or $generated .Values.ui.env .Values.ui.envFromConfigMap .Values.ui.envFromSecrets }}
           env:
-            {{- range $key, $value := . }}
+            {{- range $key, $value := $generated }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
-          {{- end }}
-          {{- if or .Values.ui.envFromConfigMap .Values.ui.envFromSecrets }}
-          env:
+            {{- range $key, $value := .Values.ui.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
             {{- range $key, $config := .Values.ui.envFromConfigMap }}
             - name: {{ $key }}
               valueFrom:
@@ -107,7 +118,7 @@ spec:
           {{- if .Values.ui.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
-              path: /health
+              path: {{ include "cruise-control.ui.healthPath" . }}
               port: http
             failureThreshold: {{ .Values.ui.livenessProbe.failureThreshold }}
             initialDelaySeconds: {{ .Values.ui.livenessProbe.initialDelaySeconds }}
@@ -121,7 +132,7 @@ spec:
           {{- if .Values.ui.readinessProbe.enabled }}
           readinessProbe:
             httpGet:
-              path: /health
+              path: {{ include "cruise-control.ui.healthPath" . }}
               port: http
             failureThreshold: {{ .Values.ui.readinessProbe.failureThreshold }}
             initialDelaySeconds: {{ .Values.ui.readinessProbe.initialDelaySeconds }}
@@ -135,7 +146,7 @@ spec:
           {{- if .Values.ui.startupProbe.enabled }}
           startupProbe:
             httpGet:
-              path: /health
+              path: {{ include "cruise-control.ui.healthPath" . }}
               port: http
             failureThreshold: {{ .Values.ui.startupProbe.failureThreshold }}
             initialDelaySeconds: {{ .Values.ui.startupProbe.initialDelaySeconds }}
@@ -154,7 +165,9 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- if or (eq .Values.ui.flavor "legacy") .Values.ui.volumeMounts }}
           volumeMounts:
+            {{- if eq .Values.ui.flavor "legacy" }}
             - name: nginx-config
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
@@ -163,10 +176,14 @@ spec:
               subPath: config.csv
             - name: tmp
               mountPath: /tmp
+            {{- end }}
             {{- with .Values.ui.volumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
+          {{- end }}
+      {{- if or (eq .Values.ui.flavor "legacy") .Values.ui.volumes }}
       volumes:
+        {{- if eq .Values.ui.flavor "legacy" }}
         - name: nginx-config
           configMap:
             name: {{ include "cruise-control.fullname" . }}-ui-config
@@ -175,9 +192,11 @@ spec:
             name: {{ include "cruise-control.fullname" . }}-ui-config
         - name: tmp
           emptyDir: {}
+        {{- end }}
         {{- with .Values.ui.volumes }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
+      {{- end }}
       {{- with .Values.ui.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

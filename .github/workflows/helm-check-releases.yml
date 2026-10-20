@@ -21,8 +21,8 @@ jobs:
       - name: Get current release
         id: current_release
         run: |
-          current_release=$(grep appVersion charts/cruise-control/Chart.yaml | awk '{ print $2 }')
-          echo "current_release=$current_release" >> $GITHUB_OUTPUT
+          echo "current_release=$(grep appVersion charts/cruise-control/Chart.yaml | awk '{ print $2 }')" >> "$GITHUB_OUTPUT"
+          echo "current_ui=$(yq '.ui.image.tag' charts/cruise-control/values.yaml)" >> "$GITHUB_OUTPUT"
 
       - name: Install updatecli
         uses: updatecli/updatecli-action@2efa15cbae1751f532f9bfc88f56adafd6d1faed # v3.8.0
@@ -34,14 +34,14 @@ jobs:
       - name: Get latest release
         id: latest_release
         run: |
-          latest_release=$(grep appVersion charts/cruise-control/Chart.yaml | awk '{ print $2 }')
-          echo "latest_release=$latest_release" >> $GITHUB_OUTPUT
+          echo "latest_release=$(grep appVersion charts/cruise-control/Chart.yaml | awk '{ print $2 }')" >> "$GITHUB_OUTPUT"
+          echo "latest_ui=$(yq '.ui.image.tag' charts/cruise-control/values.yaml)" >> "$GITHUB_OUTPUT"
 
       - name: Check if release changed
         id: check_changes
         run: |
-          if [ ${{ steps.latest_release.outputs.latest_release }} != ${{ steps.current_release.outputs.current_release }} ]; then
-            echo "release_changed=true" >> $GITHUB_OUTPUT
+          if ! git diff --quiet -- charts/cruise-control; then
+            echo "release_changed=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Update README.md Helm Chart
@@ -50,28 +50,60 @@ jobs:
         with:
           chart-search-root: charts/cruise-control
 
-      - name: Clean tag release for Cruise Control
-        id: clean_tag_release
+      - name: Describe changes
+        id: describe
         if: steps.check_changes.outputs.release_changed == 'true'
+        env:
+          CURRENT_RELEASE: ${{ steps.current_release.outputs.current_release }}
+          LATEST_RELEASE: ${{ steps.latest_release.outputs.latest_release }}
+          CURRENT_UI: ${{ steps.current_release.outputs.current_ui }}
+          LATEST_UI: ${{ steps.latest_release.outputs.latest_ui }}
         run: |
-          cc_clean_version_tag=$(echo ${{ steps.latest_release.outputs.latest_release }} | grep -oP '(?<=cc)\d+\.\d+\.\d+')
-          echo "cc_clean_version_tag=$cc_clean_version_tag" >> $GITHUB_OUTPUT
+          body=""
+          if [ "$LATEST_RELEASE" != "$CURRENT_RELEASE" ]; then
+            cc_tag=$(echo "$LATEST_RELEASE" | grep -oP '(?<=cc)\d+\.\d+\.\d+')
+            title="fix: [cruise-control] new release: $LATEST_RELEASE"
+            message="fix: update Cruise Control version to $LATEST_RELEASE"
+            branch="chore/upgrade-cruise-control-$LATEST_RELEASE"
+            body="Cruise Control version:
+          - :information_source: Current: \`$CURRENT_RELEASE\`
+          - :up: Upgrade: \`$LATEST_RELEASE\`
+
+          Changelog: https://github.com/cruise-control-for-kafka/cruise-control/releases/tag/$cc_tag
+          "
+          else
+            title="fix: [cruise-control] new UI release: $LATEST_UI"
+            message="fix: update Kafka Cruise Control UI version to $LATEST_UI"
+            branch="chore/upgrade-cruise-control-ui-$LATEST_UI"
+          fi
+          if [ "$LATEST_UI" != "$CURRENT_UI" ]; then
+            body="$body
+          Kafka Cruise Control UI version:
+          - :information_source: Current: \`$CURRENT_UI\`
+          - :up: Upgrade: \`$LATEST_UI\`
+
+          Releases: https://github.com/devops-ia/kafka-cruise-control-ui/releases
+          "
+          fi
+          {
+            echo "title=$title"
+            echo "message=$message"
+            echo "branch=$branch"
+            echo "body<<EOF_BODY"
+            echo "$body"
+            echo "EOF_BODY"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create PR with changes
         if: steps.check_changes.outputs.release_changed == 'true'
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.PAT_GITHUB }}
-          commit-message: "fix: update Cruise Control version to ${{ steps.latest_release.outputs.latest_release }}"
+          commit-message: ${{ steps.describe.outputs.message }}
           signoff: false
-          branch: chore/upgrade-cruise-control-${{ steps.latest_release.outputs.latest_release }}
+          branch: ${{ steps.describe.outputs.branch }}
           delete-branch: true
-          title: 'fix: [cruise-control] new release: ${{ steps.latest_release.outputs.latest_release }}'
-          body: |
-            Cruise Control version:
-            - :information_source: Current: `${{ steps.current_release.outputs.current_release }}`
-            - :up: Upgrade: `${{ steps.latest_release.outputs.latest_release }}`
-
-            Changelog: https://github.com/cruise-control-for-kafka/cruise-control/releases/tag/${{ steps.clean_tag_release.outputs.cc_clean_version_tag }}
+          title: ${{ steps.describe.outputs.title }}
+          body: ${{ steps.describe.outputs.body }}
           labels: |
             auto-pr-bump-version

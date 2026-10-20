@@ -7,17 +7,17 @@ sources:
       versionfilter:
         kind: regex
         pattern: '^jdk17-cc3\.([1-9]|[1-9][0-9]+)\..*'
-  cruise-control-ui:
+  kafka-cruise-control-ui:
     kind: dockerimage
     spec:
-      image: devopsiaci/cruise-control-ui
+      image: devopsiaci/kafka-cruise-control-ui
       architecture: linux/amd64
       versionfilter:
         kind: semver
 conditions: {}
 targets:
   cruise-control-helm:
-    name: bump cruise-control helm chart
+    name: bump cruise-control appVersion
     kind: helmchart
     spec:
       name: charts/cruise-control
@@ -25,12 +25,12 @@ targets:
       key: $.appVersion
       versionincrement: patch
     sourceid: cruise-control
-  cruise-control-ui-helm:
-    name: bump cruise-control helm chart
+  kafka-cruise-control-ui-helm:
+    name: bump kafka-cruise-control-ui image tag
     kind: helmchart
     spec:
       name: charts/cruise-control
       file: values.yaml
       key: $.ui.image.tag
       versionincrement: none
-    sourceid: cruise-control-ui
+    sourceid: kafka-cruise-control-ui

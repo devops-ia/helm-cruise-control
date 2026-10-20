@@ -881,7 +881,12 @@ ui:
   # Specifies the number of replicas for the service
   replicaCount: 1
 
-  # -- Image registry
+  # -- UI flavor. Allowed values: new, legacy
+  # </br> `new` deploys devops-ia/kafka-cruise-control-ui (Go server, no nginx), configured with CCUI_* variables generated from `clusters`
+  # </br> `legacy` deploys the frozen LinkedIn UI behind nginx, with the nginx.conf and config.csv the chart generates
+  flavor: new
+
+  # -- Image of the new UI (used when flavor is new)
   # The image configuration for the base service
   image:
     # The repository of the image
@@ -889,7 +894,24 @@ ui:
     # The pull policy for the image
     pullPolicy: IfNotPresent
     # Overrides the image tag
-    tag: 0.4.0
+    tag: 1.0.0
+
+  # -- Settings of the legacy UI (used when flavor is legacy)
+  legacy:
+    # -- Image of the legacy UI. Frozen at 0.4.0, nobody publishes new tags
+    image:
+      # -- Repository of the legacy image
+      repository: ghcr.io/devops-ia/kafka-cruise-control-ui
+      # -- Pull policy of the legacy image
+      pullPolicy: IfNotPresent
+      # -- Tag of the legacy image
+      tag: 0.4.0
+
+  # -- Authentication of the new UI (ignored by the legacy flavor)
+  auth:
+    # -- Login mode, sets CCUI_AUTH_MODE. Allowed values: none, local, oidc
+    # </br> `none` has no login: anyone who reaches the UI is admin. The chart does not create users, hashes, session secrets or OIDC providers, pass them with `ui.env`, `ui.envFromSecrets` and `ui.envFromFiles`
+    mode: none
 
   # -- Specifies the secrets to use for pulling images from private registries
   # Leave empty if no secrets are required

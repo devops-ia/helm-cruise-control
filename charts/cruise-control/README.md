@@ -13,23 +13,24 @@ A Helm chart to deploy Cruise Control for Apache Kafka
 
 ## Container images
 
-The default images are built from [devops-ia/kafka-cruise-control](https://github.com/devops-ia/kafka-cruise-control):
+The server image is built from [devops-ia/kafka-cruise-control](https://github.com/devops-ia/kafka-cruise-control) and the UI image from [devops-ia/kafka-cruise-control-ui](https://github.com/devops-ia/kafka-cruise-control-ui):
 
 | Component | GHCR | Docker Hub |
 |-----------|------|------------|
 | Server | [ghcr.io/devops-ia/kafka-cruise-control](https://github.com/devops-ia/kafka-cruise-control/pkgs/container/kafka-cruise-control) | [devopsiaci/cruise-control](https://hub.docker.com/r/devopsiaci/cruise-control) |
-| UI | [ghcr.io/devops-ia/kafka-cruise-control-ui](https://github.com/devops-ia/kafka-cruise-control/pkgs/container/kafka-cruise-control-ui) | [devopsiaci/cruise-control-ui](https://hub.docker.com/r/devopsiaci/cruise-control-ui) |
+| UI (new, default) | [ghcr.io/devops-ia/kafka-cruise-control-ui](https://github.com/devops-ia/kafka-cruise-control-ui/pkgs/container/kafka-cruise-control-ui) | [devopsiaci/kafka-cruise-control-ui](https://hub.docker.com/r/devopsiaci/kafka-cruise-control-ui) |
+| UI (legacy, frozen at `0.4.0`) | `ghcr.io/devops-ia/kafka-cruise-control-ui:0.4.0` | `devopsiaci/cruise-control-ui:0.4.0` |
 
 Why this chart uses them:
 
 * [Upstream](https://github.com/cruise-control-for-kafka/cruise-control) attaches no jar or tgz assets to its releases, so the image is built from the git tag.
-* The server image bundles what the chart expects: the server, the AWS MSK IAM auth jar and the metrics reporter jar (`/cruise-control/cruise-control/build/dependant-libs/cruise-control-metrics-reporter.jar`). The UI ([linkedin/cruise-control-ui](https://github.com/linkedin/cruise-control-ui) v0.4.0) ships as a separate nginx image.
-* Both run as non-root (server uid 65534, UI uid 101).
+* The server image bundles what the chart expects: the server, the AWS MSK IAM auth jar and the metrics reporter jar (`/cruise-control/cruise-control/build/dependant-libs/cruise-control-metrics-reporter.jar`). The UI is a separate image.
+* Both run as non-root (server uid 65534; the new UI is distroless and non-root; the legacy UI runs as uid 101).
 * Images are multi-arch (`linux/amd64`, `linux/arm64`) and published with an SBOM. The GHCR images also carry a build provenance attestation.
 * Server tags look like `jdk<N>-cc<version>-iam<version>`. updatecli bumps them, so the chart `appVersion` follows.
 * Only Cruise Control 3.x is built. JDK 17 (default) and 21 are published. JDK 25 is not: the 3.1.0 build uses Gradle 8.5, which cannot run on it.
 
-To use another image, set `image.repository` / `image.tag` (server) and `ui.image.repository` / `ui.image.tag` (UI). A custom server image must provide:
+To use another image, set `image.repository` / `image.tag` (server), `ui.image.repository` / `ui.image.tag` (new UI) and `ui.legacy.image.repository` / `ui.legacy.image.tag` (legacy UI). A custom server image must provide:
 
 * the Cruise Control start script at `/cruise-control/kafka-cruise-control-start.sh` and its config under `/cruise-control/config/` (the chart mounts `cruisecontrol.properties`, `capacity.json`, `clusterConfigs.json` and `log4j2.properties` there),
 * `log4j2.properties` as the logging file (`log4j.properties` is not read by 3.x),
@@ -42,7 +43,7 @@ To use another image, set `image.repository` / `image.tag` (server) and `ui.imag
 | Chart | Cruise Control | Default image tag | JDK | Kafka | UI | Log file | Notes |
 |-------|----------------|-------------------|-----|-------|----|----------|-------|
 | 2.x | 2.5.146 (docs) | `jdk17-cc2.5.146-iam2.3.9` (docs) | 17 (docs) | 2.5 to 4.3 (docs) | 0.4.0 (docs) | `log4j.properties` (docs) | ZooKeeper settings were accepted. No longer maintained here. |
-| 3.0.0 (expected) | 3.1.0 (tested) | `jdk17-cc3.1.0-iam2.3.9` (tested) | 17 (tested), 21 (tested), 25 not published | 2.5 to 4.3 (docs); 3.9.1 KRaft (tested) | 0.4.0 (tested) | `log4j2.properties` (tested) | ZooKeeper optional (tested without). Metrics reporter on the brokers must match the server version (docs). |
+| 3.0.0 (expected) | 3.1.0 (tested) | `jdk17-cc3.1.0-iam2.3.9` (tested) | 17 (tested), 21 (tested), 25 not published | 2.5 to 4.3 (docs); 3.9.1 KRaft (tested) | 1.0.0 new (docs), 0.4.0 legacy (tested) | `log4j2.properties` (tested) | ZooKeeper optional (tested without). Metrics reporter on the brokers must match the server version (docs). |
 
 ## Migrating from chart 2.x
 
@@ -52,7 +53,97 @@ To use another image, set `image.repository` / `image.tag` (server) and `ui.imag
 * `metric.sampling.interval.ms` must be at least 60000. With 30000 or 45000 the server exits at startup with `ConfigException: Attempt to set metadata refresh timeout [55000] to be longer than sampling period`. The chart default is 120000.
 * `zookeeper.connect` and `zookeeper.security.enabled` are not needed. A Kafka KRaft cluster works without them, and a leftover `zookeeper.connect: false` is ignored (3.1.0 only logs it among the unused configurations).
 * `env.JAVA_OPTS` is not read by the start script. Use `env.KAFKA_HEAP_OPTS` and `env.KAFKA_JVM_PERFORMANCE_OPTS`.
-* The UI image tag no longer falls back to the server `appVersion`; it falls back to `0.4.0`.
+* **BREAKING: the default UI is now the new one, without login.** `ui.flavor` defaults to `new`, `ui.image` is the new UI (`1.0.0`) and the legacy UI lives in `ui.legacy.image`. If you pinned `ui.image.tag: 0.4.0`, remove it and set `ui.flavor: legacy` instead (and `ui.legacy.image.tag` if you need another legacy tag); otherwise the new UI would start with a `0.4.0` tag that belongs to the old one and the pod would not start. `ghcr.io/devops-ia/kafka-cruise-control-ui:0.4.0` is the old UI and will not be updated.
+* The new UI listens on the same port (`ui.service.targetPort`, 8080) but its health path is `/healthz` instead of `/health`, and it does not use the nginx ConfigMap. The `/<cluster>/kafkacruisecontrol/` paths of the old nginx proxy do not exist: the new UI picks the cluster in the page.
+* The UI image tag no longer falls back to the server `appVersion`; the legacy flavor falls back to `0.4.0`.
+* `ui.env` together with `ui.envFromConfigMap` or `ui.envFromSecrets` rendered two `env:` keys in the UI Deployment, so only the last one took effect. It is now one `env:` list.
+
+## User interface
+
+The chart deploys one UI Deployment. `ui.flavor` picks which UI it runs.
+
+| | `new` (default) | `legacy` |
+|-|-----------------|----------|
+| Image | `ui.image`, `ghcr.io/devops-ia/kafka-cruise-control-ui:1.0.0` | `ui.legacy.image`, `ghcr.io/devops-ia/kafka-cruise-control-ui:0.4.0` |
+| What it is | [kafka-cruise-control-ui](https://github.com/devops-ia/kafka-cruise-control-ui): Go server with the SPA embedded and its own proxy, no nginx | The LinkedIn [cruise-control-ui](https://github.com/linkedin/cruise-control-ui) behind nginx, frozen |
+| Configuration | `CCUI_*` environment variables the chart generates from `clusters` | `nginx.conf` and `config.csv` in a ConfigMap (`<release>-cruise-control-ui-config`) |
+| Health path | `/healthz` | `/health` |
+| Login | `ui.auth.mode`: `none` (default), `local`, `oidc` | None |
+
+The legacy UI is not rebuilt any more and gets no new tags. To build it locally, use `docker build --target legacy -t cruise-control-ui-legacy .` in [kafka-cruise-control-ui](https://github.com/devops-ia/kafka-cruise-control-ui). To go back to it: `--set ui.flavor=legacy`.
+
+### Generated configuration (flavor `new`)
+
+For each entry of `clusters` the chart sets `CCUI_CLUSTERS__<n>__NAME`, `__GROUP` (the `group` value, or `cluster`) and `__URL` (`http://<release>-cruise-control-<cluster>:<service.port>/kafkacruisecontrol`). It also sets `CCUI_AUTH_MODE` from `ui.auth.mode` and `CCUI_LISTEN` from `ui.service.targetPort`. Nothing else: timeouts and cluster authentication use the server defaults.
+
+`<n>` is the position of the cluster in alphabetical order of its name, starting at 0. If you add a cluster whose name sorts before an existing one, the indexes shift, and so do any `CCUI_CLUSTERS__<n>__AUTH_*` variables you set for the later clusters (see [the UI configuration](https://github.com/devops-ia/kafka-cruise-control-ui/blob/main/docs/CONFIGURATION.md)).
+
+Pass everything else through `ui.env` (plain values), `ui.envFromSecrets` / `ui.envFromConfigMap` (single keys) and `ui.envFromFiles` (a whole Secret or ConfigMap, as `envFrom`). A variable you define in `ui.env`, `ui.envFromSecrets` or `ui.envFromConfigMap` replaces the generated one of the same name. A Secret loaded with `envFromFiles` cannot: Kubernetes gives `env` priority over `envFrom`, so change `CCUI_AUTH_MODE` only with `ui.auth.mode` or `ui.env`. The chart sets `enableServiceLinks: false` on the pod, because the UI rejects any unknown `CCUI_*` variable and Kubernetes would inject `CCUI_*_SERVICE_HOST` for a Service whose name starts with `ccui`.
+
+Changes to clusters, `ui.auth.mode` or `ui.env` change the pod template, so `helm upgrade` restarts the pods. A Secret you reference with `envFromFiles` or `envFromSecrets` is not tracked: run `kubectl rollout restart` after you change it.
+
+### Login
+
+`ui.auth.mode` defaults to `none`: **there is no login, everyone who reaches the UI is admin and can start rebalances.** The Service is `ClusterIP` and the ingress is off by default. Turn on `local` or `oidc` before you expose the UI. The chart does not create users, hashes, session secrets or OIDC providers; you provide them.
+
+Local users. Create the hash and the Secret yourself:
+
+```console
+kubectl create secret generic ccui-secrets \
+  --from-literal=CCUI_SESSION_SECRET="$(openssl rand -base64 48)" \
+  --from-literal=CCUI_LOCAL_ADMIN_PASSWORD_HASH="$(htpasswd -bnBC 12 "" 'your password' | tr -d ':\n')"
+```
+
+```yaml
+ui:
+  auth:
+    mode: local
+  envFromFiles:
+    - secretRef:
+        name: ccui-secrets
+  # Only on plain HTTP; remove it behind HTTPS
+  env:
+    CCUI_COOKIE_INSECURE: "true"
+```
+
+OIDC:
+
+```yaml
+ui:
+  auth:
+    mode: oidc
+  env:
+    CCUI_PUBLIC_URL: https://cc.example.com
+    CCUI_OIDC__0__NAME: corp
+    CCUI_OIDC__0__ISSUER: https://idp.example.com
+    CCUI_OIDC__0__CLIENT_ID: cruise-control
+    CCUI_OIDC__0__ADMIN_GROUPS: ccui-admins
+  envFromSecrets:
+    CCUI_OIDC__0__CLIENT_SECRET:
+      name: ccui-oidc
+      key: client-secret
+    CCUI_SESSION_SECRET:
+      name: ccui-oidc
+      key: session-secret
+```
+
+Sessions live in the memory of each pod. With more than one replica and a login, you need session affinity: `ui.service.sessionAffinity: ClientIP` or a cookie affinity annotation on the ingress. The chart does not set it. All the `CCUI_*` variables are in the [UI configuration](https://github.com/devops-ia/kafka-cruise-control-ui/blob/main/docs/CONFIGURATION.md).
+
+### Hardening
+
+The new UI runs as non-root with a read-only root filesystem. The chart leaves the `securityContext` values empty, as it does for the server. A recommended setting:
+
+```yaml
+ui:
+  securityContext:
+    runAsNonRoot: true
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: [ALL]
+```
+
+Probes are off by default (`ui.livenessProbe.enabled` and friends). When on, they call `/healthz` in the new flavor and `/health` in the legacy one.
 
 ## Prerequisites
 
@@ -176,10 +267,12 @@ helm show values cruise-control/cruise-control
 | testConnection | object | `{"enabled":false,"repository":"busybox","tag":""}` | Enable or disable test connection |
 | tolerations | list | `[]` | Tolerations for pod assignment </br> Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/ |
 | topologySpreadConstraints | list | `[]` | Control how Pods are spread across your cluster </br> Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/#example-multiple-topologyspreadconstraints |
-| ui | object | `{"affinity":{},"annotations":{},"args":[],"autoscaling":{"enabled":false,"maxReplicas":100,"minReplicas":1,"targetCPUUtilizationPercentage":80},"command":[],"configMaps":[],"dnsConfig":{},"dnsPolicy":"ClusterFirst","enabled":true,"env":{},"envFromConfigMap":{},"envFromFiles":[],"envFromSecrets":{},"gateway":{"annotations":{},"className":"","create":false,"enabled":false,"filters":[],"hostnames":[],"labels":{},"listeners":[{"name":"http","port":80,"protocol":"HTTP"}],"parentRefs":[{"name":"","namespace":""}],"rules":[{"matches":[{"path":{"type":"PathPrefix","value":"/"}}]}]},"hostAliases":[],"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/devops-ia/kafka-cruise-control-ui","tag":"0.4.0"},"imagePullSecrets":[],"ingress":{"annotations":{},"className":"","enabled":false,"hosts":[{"host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}]}],"tls":[]},"initContainers":[],"labels":{},"lifecycle":{},"livenessProbe":{"enabled":false,"failureThreshold":3,"initialDelaySeconds":180,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":5},"livenessProbeCustom":{},"networkPolicy":{"egress":[],"enabled":false,"ingress":[],"policyTypes":[]},"nodeSelector":{},"podAnnotations":{},"podDisruptionBudget":{"enabled":false,"maxUnavailable":1,"minAvailable":null},"podLabels":{},"podSecurityContext":{},"readinessProbe":{"enabled":false,"failureThreshold":3,"initialDelaySeconds":10,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":1},"readinessProbeCustom":{},"replicaCount":1,"resources":{},"secrets":[],"securityContext":{},"service":{"annotations":{},"appProtocol":"HTTP","extraPorts":[],"labels":{},"loadBalancer":{},"port":80,"portName":"http","protocol":"TCP","targetPort":8080,"type":"ClusterIP"},"serviceAccount":{"annotations":{},"automount":true,"create":true,"name":""},"startupProbe":{"enabled":false,"failureThreshold":30,"initialDelaySeconds":180,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":5},"startupProbeCustom":{},"strategy":{},"terminationGracePeriodSeconds":30,"tolerations":[],"topologySpreadConstraints":[],"volumeMounts":[],"volumes":[]}` | UI configuration for multi-cluster setup This is only deployed when multiple clusters are configured It includes the Cruise Control UI with nginx acting as reverse proxy routing traffic to each cluster based on URL path |
+| ui | object | `{"affinity":{},"annotations":{},"args":[],"auth":{"mode":"none"},"autoscaling":{"enabled":false,"maxReplicas":100,"minReplicas":1,"targetCPUUtilizationPercentage":80},"command":[],"configMaps":[],"dnsConfig":{},"dnsPolicy":"ClusterFirst","enabled":true,"env":{},"envFromConfigMap":{},"envFromFiles":[],"envFromSecrets":{},"flavor":"new","gateway":{"annotations":{},"className":"","create":false,"enabled":false,"filters":[],"hostnames":[],"labels":{},"listeners":[{"name":"http","port":80,"protocol":"HTTP"}],"parentRefs":[{"name":"","namespace":""}],"rules":[{"matches":[{"path":{"type":"PathPrefix","value":"/"}}]}]},"hostAliases":[],"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/devops-ia/kafka-cruise-control-ui","tag":"1.0.0"},"imagePullSecrets":[],"ingress":{"annotations":{},"className":"","enabled":false,"hosts":[{"host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}]}],"tls":[]},"initContainers":[],"labels":{},"legacy":{"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/devops-ia/kafka-cruise-control-ui","tag":"0.4.0"}},"lifecycle":{},"livenessProbe":{"enabled":false,"failureThreshold":3,"initialDelaySeconds":180,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":5},"livenessProbeCustom":{},"networkPolicy":{"egress":[],"enabled":false,"ingress":[],"policyTypes":[]},"nodeSelector":{},"podAnnotations":{},"podDisruptionBudget":{"enabled":false,"maxUnavailable":1,"minAvailable":null},"podLabels":{},"podSecurityContext":{},"readinessProbe":{"enabled":false,"failureThreshold":3,"initialDelaySeconds":10,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":1},"readinessProbeCustom":{},"replicaCount":1,"resources":{},"secrets":[],"securityContext":{},"service":{"annotations":{},"appProtocol":"HTTP","extraPorts":[],"labels":{},"loadBalancer":{},"port":80,"portName":"http","protocol":"TCP","targetPort":8080,"type":"ClusterIP"},"serviceAccount":{"annotations":{},"automount":true,"create":true,"name":""},"startupProbe":{"enabled":false,"failureThreshold":30,"initialDelaySeconds":180,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":5},"startupProbeCustom":{},"strategy":{},"terminationGracePeriodSeconds":30,"tolerations":[],"topologySpreadConstraints":[],"volumeMounts":[],"volumes":[]}` | UI configuration for multi-cluster setup This is only deployed when multiple clusters are configured It includes the Cruise Control UI with nginx acting as reverse proxy routing traffic to each cluster based on URL path |
 | ui.affinity | object | `{}` | Affinity for pod assignment </br> Ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity |
 | ui.annotations | object | `{}` | Configure annotations on Deployment |
 | ui.args | list | `[]` | Configure args </br> Ref: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/ |
+| ui.auth | object | `{"mode":"none"}` | Authentication of the new UI (ignored by the legacy flavor) |
+| ui.auth.mode | string | `"none"` | Login mode, sets CCUI_AUTH_MODE. Allowed values: none, local, oidc </br> `none` has no login: anyone who reaches the UI is admin. The chart does not create users, hashes, session secrets or OIDC providers, pass them with `ui.env`, `ui.envFromSecrets` and `ui.envFromFiles` |
 | ui.autoscaling | object | `{"enabled":false,"maxReplicas":100,"minReplicas":1,"targetCPUUtilizationPercentage":80}` | Autoscaling with CPU or memory utilization percentage </br> Ref: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/ |
 | ui.command | list | `[]` | Configure command </br> Ref: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/ |
 | ui.configMaps | list | `[]` | ConfigMap values to create configuration files Generate ConfigMap with following name: <release-name>-<name> </br> Ref: https://kubernetes.io/docs/concepts/configuration/configmap/ |
@@ -190,13 +283,19 @@ helm show values cruise-control/cruise-control
 | ui.envFromConfigMap | object | `{}` | Variables from configMap |
 | ui.envFromFiles | list | `[]` | Variables from files managed by you </br> Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/#configure-all-key-value-pairs-in-a-configmap-as-container-environment-variables |
 | ui.envFromSecrets | object | `{}` | Variables from secrets |
+| ui.flavor | string | `"new"` | UI flavor. Allowed values: new, legacy </br> `new` deploys devops-ia/kafka-cruise-control-ui (Go server, no nginx), configured with CCUI_* variables generated from `clusters` </br> `legacy` deploys the frozen LinkedIn UI behind nginx, with the nginx.conf and config.csv the chart generates |
 | ui.gateway | object | `{"annotations":{},"className":"","create":false,"enabled":false,"filters":[],"hostnames":[],"labels":{},"listeners":[{"name":"http","port":80,"protocol":"HTTP"}],"parentRefs":[{"name":"","namespace":""}],"rules":[{"matches":[{"path":{"type":"PathPrefix","value":"/"}}]}]}` | Gateway API configuration (Gateway + HTTPRoute resources) </br> Ref: https://gateway-api.sigs.k8s.io/ </br> Requires Gateway API CRDs installed in the cluster. </br> TLS is configured at the Gateway listener level, not the HTTPRoute. |
 | ui.hostAliases | list | `[]` | Configure hostAliases </br> Ref: https://kubernetes.io/docs/tasks/network/customize-hosts-file-for-pods/ |
-| ui.image | object | `{"pullPolicy":"IfNotPresent","repository":"ghcr.io/devops-ia/kafka-cruise-control-ui","tag":"0.4.0"}` | Image registry The image configuration for the base service |
+| ui.image | object | `{"pullPolicy":"IfNotPresent","repository":"ghcr.io/devops-ia/kafka-cruise-control-ui","tag":"1.0.0"}` | Image of the new UI (used when flavor is new) The image configuration for the base service |
 | ui.imagePullSecrets | list | `[]` | Specifies the secrets to use for pulling images from private registries Leave empty if no secrets are required E.g. imagePullSecrets:   - name: myRegistryKeySecretName |
 | ui.ingress | object | `{"annotations":{},"className":"","enabled":false,"hosts":[{"host":"chart-example.local","paths":[{"path":"/","pathType":"ImplementationSpecific"}]}],"tls":[]}` | Ingress configuration to expose app </br> Ref: https://kubernetes.io/docs/concepts/services-networking/ingress/ When multiple clusters are configured, the Ingress will point to the reverse-proxy service For single cluster, it will point directly to the cluster service |
 | ui.initContainers | list | `[]` | Configure additional containers </br> Ref: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/ |
 | ui.labels | object | `{}` | Configure labels on Deployment |
+| ui.legacy | object | `{"image":{"pullPolicy":"IfNotPresent","repository":"ghcr.io/devops-ia/kafka-cruise-control-ui","tag":"0.4.0"}}` | Settings of the legacy UI (used when flavor is legacy) |
+| ui.legacy.image | object | `{"pullPolicy":"IfNotPresent","repository":"ghcr.io/devops-ia/kafka-cruise-control-ui","tag":"0.4.0"}` | Image of the legacy UI. Frozen at 0.4.0, nobody publishes new tags |
+| ui.legacy.image.pullPolicy | string | `"IfNotPresent"` | Pull policy of the legacy image |
+| ui.legacy.image.repository | string | `"ghcr.io/devops-ia/kafka-cruise-control-ui"` | Repository of the legacy image |
+| ui.legacy.image.tag | string | `"0.4.0"` | Tag of the legacy image |
 | ui.lifecycle | object | `{}` | Configure lifecycle hooks </br> Ref: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/ </br> Ref: https://learnk8s.io/graceful-shutdown |
 | ui.livenessProbe | object | `{"enabled":false,"failureThreshold":3,"initialDelaySeconds":180,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":5}` | Configure liveness checker </br> Ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-startup-probes |
 | ui.livenessProbeCustom | object | `{}` | Custom livenessProbe |
