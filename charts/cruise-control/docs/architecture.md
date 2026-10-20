@@ -11,7 +11,7 @@ This document explains the architectural decisions behind the Cruise Control Hel
 The project builds **two separate Docker images** with distinct responsibilities:
 
 1. **cruise-control**: Server-only image containing the Cruise Control Java application
-2. **cruise-control-ui**: UI-only image containing the web interface served by nginx
+2. **kafka-cruise-control-ui**: UI-only image. The default (`ui.flavor: new`) is the Go server with the web interface embedded and its own proxy to Cruise Control, built from [devops-ia/kafka-cruise-control-ui](https://github.com/devops-ia/kafka-cruise-control-ui). The `legacy` flavor runs the frozen LinkedIn UI (`0.4.0`) served by nginx
 
 ### Rationale
 
@@ -27,10 +27,16 @@ Each image has a single, well-defined purpose:
   - Runs as non-root user `nobody` (UID 65534)
   - Size: ~800MB (JDK + application)
 
-- **cruise-control-ui image**: Serves the static web UI with reverse proxy
+- **kafka-cruise-control-ui image (flavor `new`, default)**: Serves the web UI and proxies the requests to each cluster
+  - Distroless Go server with the SPA embedded, no nginx
+  - Configured only with `CCUI_*` environment variables, which the chart generates from `clusters`
+  - Listens on `CCUI_LISTEN` (8080), exposed by the Service on port 80; health on `/healthz`
+  - Runs as non-root and works with a read-only root filesystem
+
+- **legacy UI image (flavor `legacy`)**: The LinkedIn UI, frozen at `0.4.0`, not rebuilt
   - Based on nginx:1.28-alpine
-  - Contains HTML/CSS/JS static files
-  - Listens on port 8080 (the chart nginx.conf), exposed by the Service on port 80
+  - Contains HTML/CSS/JS static files; the chart mounts its own `nginx.conf` (reverse proxy) and `config.csv`
+  - Listens on port 8080 (the chart nginx.conf), exposed by the Service on port 80; health on `/health`
   - Runs as non-root user `nginx` (UID 101)
   - Size: ~25MB (nginx + static files)
 
@@ -69,7 +75,7 @@ Organizations can choose their deployment strategy:
 
 #### 5. Security boundaries
 
-- UI runs as non-root user (UID 101) with restrictive nginx config
+- The new UI runs as non-root with a read-only root filesystem when you set the `securityContext`; the legacy UI runs as UID 101 with a restrictive nginx config
 - Server runs as non-root user (UID 99) with minimal privileges
 - Separate ServiceAccounts for fine-grained RBAC
 - Different security contexts and network policies for each component
@@ -104,11 +110,22 @@ clusters:
 **Key characteristics:**
 
 - If `group` is not specified, it defaults to `"cluster"`
-- The group is reflected in the UI's `config.csv` file
+- The group is passed to the UI: `CCUI_CLUSTERS__<n>__GROUP` in the new flavor, the `config.csv` file in the legacy one
 - Groups help organize clusters in the UI by environment or purpose
 - No functional impact on server behavior, purely organizational
 
-**Generated config.csv:**
+**Generated variables (flavor `new`):**
+
+```text
+CCUI_CLUSTERS__0__NAME=cluster-dev
+CCUI_CLUSTERS__0__GROUP=develop
+CCUI_CLUSTERS__0__URL=http://<release>-cruise-control-cluster-dev:80/kafkacruisecontrol
+CCUI_CLUSTERS__1__NAME=cluster-prod
+CCUI_CLUSTERS__1__GROUP=cluster
+...
+```
+
+**Generated config.csv (flavor `legacy`):**
 
 ```csv
 develop,cluster-dev,/cluster-dev/kafkacruisecontrol/
@@ -365,11 +382,11 @@ Clusters are defined separately from components:
 │         (cruise-control-ui)                         │
 │                                                     │
 │  ┌────────────────────────────────────────────┐   │
-│  │  cruise-control-ui image (nginx:alpine)    │   │
-│  │  - Serves static UI files (~25MB)          │   │
-│  │  - Routes API requests to server pods      │   │
-│  │  - Port 8080 (non-root user UID 101)       │   │
-│  │  - Grouped cluster list in config.csv      │   │
+│  │  kafka-cruise-control-ui image (Go)        │   │
+│  │  - Serves the embedded UI                  │   │
+│  │  - Proxies API requests to server pods     │   │
+│  │  - Port 8080 (non-root)                    │   │
+│  │  - Clusters and groups from CCUI_* env     │   │
 │  └────────────────────────────────────────────┘   │
 └──────────┬────────────────────┬────────────────────┘
            │                    │
@@ -388,13 +405,13 @@ Clusters are defined separately from components:
 
 ### Image comparison
 
-| Aspect | cruise-control | cruise-control-ui |
-|--------|----------------|-------------------|
-| Base image | amazoncorretto:17 (or 21) | nginx:1.28-alpine |
-| Size | ~800MB | ~25MB |
-| Purpose | API server | Web UI + reverse proxy |
-| Port | 9090 | 8080 (Service port 80) |
-| User | nobody (65534) | nginx (101) |
+| Aspect | cruise-control | kafka-cruise-control-ui (new) | legacy UI |
+|--------|----------------|-------------------------------|-----------|
+| Base image | amazoncorretto:17 (or 21) | distroless | nginx:1.28-alpine |
+| Size | ~800MB | ~12MB | ~25MB |
+| Purpose | API server | Web UI + proxy | Web UI + nginx reverse proxy |
+| Port | 9090 | 8080 (Service port 80) | 8080 (Service port 80) |
+| User | nobody (65534) | non-root | nginx (101) |
 | CPU request | 500m | 50m |
 | Memory request | 1Gi | 64Mi |
 | Scaling pattern | Based on Kafka load | Based on user traffic |
@@ -431,7 +448,7 @@ metadata:
 
 ### Dynamic configuration
 
-The `config.csv` file is automatically generated from Helm values:
+With the default flavor the chart renders the `CCUI_CLUSTERS__<n>__*` variables from `clusters` (sorted by name) into the Deployment, so a change of clusters restarts the pods. With `legacy`, the `config.csv` file is generated from Helm values:
 
 ```yaml
 data:
@@ -543,7 +560,7 @@ spec:
 
 ### Latency impact
 
-The reverse proxy adds minimal latency:
+The reverse proxy adds minimal latency (the figures below are estimates for the legacy nginx proxy, not measured for the new UI):
 
 - **Static content**: Served directly from nginx (`< 1ms` overhead)
 - **API requests**: Single proxy hop (`~2-5ms` overhead)
@@ -569,7 +586,7 @@ ui:
 
 ### Caching strategy
 
-Static assets are cached aggressively by nginx:
+In the legacy flavor, static assets are cached aggressively by nginx:
 
 ```nginx
 location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {

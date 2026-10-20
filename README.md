@@ -5,7 +5,7 @@
 > [!WARNING]
 > Chart 3.0.0 (expected) deploys Cruise Control 3.x only. See the [migration notes](charts/cruise-control/README.md#migrating-from-chart-2x).
 
-The default images come from [devops-ia/kafka-cruise-control](https://github.com/devops-ia/kafka-cruise-control) (`ghcr.io/devops-ia/kafka-cruise-control`, `devopsiaci/cruise-control` and the matching `-ui` images). The reasons, how to use another image and the version matrix are in the [chart README](charts/cruise-control/README.md#container-images).
+The default images come from [devops-ia/kafka-cruise-control](https://github.com/devops-ia/kafka-cruise-control) (`ghcr.io/devops-ia/kafka-cruise-control`, `devopsiaci/cruise-control`). The default UI is [devops-ia/kafka-cruise-control-ui](https://github.com/devops-ia/kafka-cruise-control-ui) (`ghcr.io/devops-ia/kafka-cruise-control-ui`, `devopsiaci/kafka-cruise-control-ui`) and it has no login unless you set `ui.auth.mode`. The old LinkedIn UI is still available with `ui.flavor: legacy`, frozen at `0.4.0` (`ghcr.io/devops-ia/kafka-cruise-control-ui:0.4.0`, `devopsiaci/cruise-control-ui:0.4.0`). The reasons, how to use another image and the version matrix are in the [chart README](charts/cruise-control/README.md#container-images).
 
 ## Usage
 

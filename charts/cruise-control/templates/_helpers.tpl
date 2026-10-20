@@ -200,3 +200,61 @@ Values from .Values.clusters have priority over clustersDefaults
 {{- end -}}
 {{- $result | toJson -}}
 {{- end }}
+
+{{/*
+Fail on an unknown UI flavor or auth mode
+*/}}
+{{- define "cruise-control.ui.validate" -}}
+{{- if not (has .Values.ui.flavor (list "new" "legacy")) -}}
+{{- fail (printf "ui.flavor must be one of: new, legacy (got %q)" (toString .Values.ui.flavor)) -}}
+{{- end -}}
+{{- if not (has .Values.ui.auth.mode (list "none" "local" "oidc")) -}}
+{{- fail (printf "ui.auth.mode must be one of: none, local, oidc (got %q)" (toString .Values.ui.auth.mode)) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+UI image: ui.image for the new flavor, ui.legacy.image for the legacy one
+*/}}
+{{- define "cruise-control.ui.image" -}}
+{{- if eq .Values.ui.flavor "legacy" -}}
+{{- printf "%s:%s" .Values.ui.legacy.image.repository (.Values.ui.legacy.image.tag | default "0.4.0") -}}
+{{- else -}}
+{{- printf "%s:%s" .Values.ui.image.repository (required "ui.image.tag is required" .Values.ui.image.tag) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Health path of the UI container
+*/}}
+{{- define "cruise-control.ui.healthPath" -}}
+{{- if eq .Values.ui.flavor "legacy" }}/health{{ else }}/healthz{{ end -}}
+{{- end }}
+
+{{/*
+CCUI_* variables the chart generates for the new UI, as JSON (empty map for legacy).
+Clusters are numbered in alphabetical order of their name (range over a map is sorted).
+A variable the user already sets in the UI env values is left out.
+*/}}
+{{- define "cruise-control.ui.generatedEnv" -}}
+{{- $gen := dict -}}
+{{- if eq .Values.ui.flavor "new" -}}
+{{- $_ := set $gen "CCUI_AUTH_MODE" .Values.ui.auth.mode -}}
+{{- $_ := set $gen "CCUI_LISTEN" (printf ":%v" .Values.ui.service.targetPort) -}}
+{{- $i := 0 -}}
+{{- range $name, $c := .Values.clusters -}}
+{{- $p := printf "CCUI_CLUSTERS__%d__" $i -}}
+{{- $_ := set $gen (print $p "NAME") $name -}}
+{{- $_ := set $gen (print $p "GROUP") ($c.group | default "cluster") -}}
+{{- $_ := set $gen (print $p "URL") (printf "http://%s:%v/kafkacruisecontrol" (include "cruise-control.cluster.fullname" (dict "clusterName" $name "root" $)) $.Values.service.port) -}}
+{{- $i = add1 $i -}}
+{{- end -}}
+{{- $user := merge (dict) (.Values.ui.env | default dict) (.Values.ui.envFromConfigMap | default dict) (.Values.ui.envFromSecrets | default dict) -}}
+{{- range $k := keys $gen -}}
+{{- if hasKey $user $k -}}
+{{- $_ := unset $gen $k -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- toJson $gen -}}
+{{- end }}

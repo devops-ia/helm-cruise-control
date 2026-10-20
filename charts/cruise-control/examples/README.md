@@ -148,7 +148,7 @@ clusters:
 
 ## Multi-cluster UI access
 
-When deploying multiple clusters, the chart automatically deploys a UI with nginx reverse proxy:
+When deploying multiple clusters, the chart deploys one UI that lists them all. The default UI (`ui.flavor: new`) proxies the requests itself and you pick the cluster in the page; groups come from each cluster's `group`:
 
 ```yaml
 ui:
@@ -159,10 +159,11 @@ ui:
       - host: cruise-control.example.com
 ```
 
-Access clusters via:
+Open `https://cruise-control.example.com/` and choose `cluster-a` or `cluster-b` in the selector. There are no `/<cluster>/` paths.
 
-* `https://cruise-control.example.com/cluster-a/`
-* `https://cruise-control.example.com/cluster-b/`
+The default has no login (`ui.auth.mode: none`). Set `ui.auth.mode` to `local` or `oidc` before exposing the UI, see [User interface](../README.md#user-interface).
+
+With `ui.flavor: legacy` (the frozen LinkedIn UI behind nginx) the clusters are reached through `https://cruise-control.example.com/cluster-a/` and `https://cruise-control.example.com/cluster-b/`.
 
 ## Configuration
 
