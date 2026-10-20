@@ -9,7 +9,7 @@ A Helm chart to deploy Cruise Control for Apache Kafka
 | ialejandro | <hello@ialejandro.rocks> | <https://ialejandro.rocks> |
 
 > [!WARNING]
-> **BREAKING: this chart deploys Cruise Control 3.x only.** Chart 3.0.0 (expected) drops 2.x. See [Migrating from chart 2.x](#migrating-from-chart-2x).
+> **BREAKING: this chart deploys Cruise Control 3.x only.** Chart 3.0.0 dropped 2.x, and chart 4.0.0 makes the new UI the default. See [Migrating from chart 2.x](#migrating-from-chart-2x).
 
 ## Container images
 
