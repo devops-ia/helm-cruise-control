@@ -3,6 +3,27 @@ entries:
   cruise-control:
   - apiVersion: v2
     appVersion: jdk17-cc3.1.0-iam2.4.0
+    created: "2026-11-28T07:24:35.837984789Z"
+    description: A Helm chart to deploy Cruise Control for Apache Kafka
+    digest: ab57905dea8ef7e3e5e9c639347791e4f0074610eaf06c33f170add7179af7a0
+    home: https://github.com/devops-ia/helm-cruise-control
+    icon: https://upload.wikimedia.org/wikipedia/commons/thumb/0/01/Apache_Kafka_logo.svg/330px-Apache_Kafka_logo.svg.png
+    keywords:
+    - cruise-control
+    - apache-kafka
+    maintainers:
+    - email: hello@ialejandro.rocks
+      name: ialejandro
+      url: https://ialejandro.rocks
+    name: cruise-control
+    sources:
+    - https://github.com/cruise-control-for-kafka/cruise-control
+    type: application
+    urls:
+    - https://github.com/devops-ia/helm-cruise-control/releases/download/v4.0.13/cruise-control-4.0.13.tgz
+    version: 4.0.13
+  - apiVersion: v2
+    appVersion: jdk17-cc3.1.0-iam2.4.0
     created: "2026-11-24T09:32:47.765901008Z"
     description: A Helm chart to deploy Cruise Control for Apache Kafka
     digest: bb72bca4f675d70f0c5f6615cc215e18fc50f909e810c8bce00247450c01d459
@@ -844,4 +865,4 @@ entries:
     urls:
     - https://github.com/devops-ia/helm-cruise-control/releases/download/v1.0.0/cruise-control-1.0.0.tgz
     version: 1.0.0
-generated: "2026-11-24T09:32:47.766242725Z"
+generated: "2026-11-28T07:24:35.838461647Z"
